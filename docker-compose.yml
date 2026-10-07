@@ -27,8 +27,8 @@ services:
       REVIVAL_RESTORE_PERCENT: ${REVIVAL_RESTORE_PERCENT:-50}
       REVIVAL_MAX_PER_RUN: ${REVIVAL_MAX_PER_RUN:-1}
       REVIVAL_CLAIM_EXPIRY: ${REVIVAL_CLAIM_EXPIRY:-300}
-      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-admin@example.com}
-      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-ChangeMe123!}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
       ADMIN_RATE_LIMIT_ATTEMPTS: ${ADMIN_RATE_LIMIT_ATTEMPTS:-5}
       ADMIN_RATE_LIMIT_WINDOW: ${ADMIN_RATE_LIMIT_WINDOW:-300}
       AD_ENABLE: ${AD_ENABLE:-false}
@@ -37,6 +37,8 @@ services:
       EVENT_RETENTION_DAYS: ${EVENT_RETENTION_DAYS:-30}
       SITE_URL: ${SITE_URL:-}
       SSL_ENABLED: ${SSL_ENABLED:-false}
+    volumes:
+      - app_data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,6 +74,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  app_data:
     driver: local
 
 networks:

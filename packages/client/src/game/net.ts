@@ -1,4 +1,4 @@
-import { decodeState, type DecodedState, type ServerMessage, type ClientMessage } from '@snake/shared/protocol';
+import { decodeState, type DecodedState, type ServerMessage, type ClientMessage, type Device } from '@snake/shared/protocol';
 
 export interface NetHandlers {
   onState(state: DecodedState, receivedAt: number): void;
@@ -68,9 +68,9 @@ export class Net {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
   }
 
-  join(nickname: string, sessionId: string): void {
+  join(nickname: string, sessionId: string, skin: number, d: Device, l: 'en' | 'es'): void {
     this.lastAngle = NaN;
-    this.send({ type: 'join', nickname, sessionId });
+    this.send({ type: 'join', nickname, sessionId, skin, d, l });
   }
 
   input(angle: number, boost: boolean, now: number): void {

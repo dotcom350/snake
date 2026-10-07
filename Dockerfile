@@ -9,7 +9,10 @@ COPY packages ./packages
 
 RUN npm ci && npm run build && npm prune --omit=dev && npm cache clean --force
 
+RUN mkdir -p /app/data && chown node:node /app/data
+
 ENV NODE_ENV=production
+ENV DATA_DIR=/app/data
 ENV NODE_OPTIONS="--max-old-space-size=256"
 
 USER node

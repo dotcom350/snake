@@ -13,6 +13,7 @@ export default defineConfig({
       input: {
         main: `${root}index.html`,
         es: `${root}es/index.html`,
+        admin: `${root}admin/index.html`,
       },
     },
   },

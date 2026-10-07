@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import { createChildLogger } from '../logger.js';
 
 const logger = createChildLogger('migrations');
@@ -143,42 +143,96 @@ DROP INDEX IF EXISTS idx_audit_logs_created_at;
 DROP INDEX IF EXISTS idx_audit_logs_admin_id;
     `,
   },
+  {
+    name: '003_admin_stats',
+    up: `
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  token_hash CHAR(64) PRIMARY KEY,
+  admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS stats_daily (
+  day DATE NOT NULL,
+  metric TEXT NOT NULL,
+  key TEXT NOT NULL DEFAULT '',
+  value BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, metric, key)
+);
+
+CREATE TABLE IF NOT EXISTS stats_uniques (
+  day DATE NOT NULL,
+  kind TEXT NOT NULL,
+  hash CHAR(16) NOT NULL,
+  PRIMARY KEY (day, kind, hash)
+);
+
+CREATE TABLE IF NOT EXISTS stats_samples (
+  ts TIMESTAMPTZ PRIMARY KEY,
+  players INT NOT NULL,
+  bots INT NOT NULL,
+  rooms INT NOT NULL,
+  connections INT NOT NULL,
+  rss_mb INT NOT NULL,
+  tick_ms REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS games (
+  id BIGSERIAL PRIMARY KEY,
+  started_at TIMESTAMPTZ NOT NULL,
+  ended_at TIMESTAMPTZ NOT NULL,
+  nickname TEXT NOT NULL,
+  score INT NOT NULL,
+  kills INT NOT NULL,
+  reason TEXT NOT NULL,
+  device TEXT NOT NULL,
+  lang TEXT NOT NULL,
+  skin INT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_games_ended_at ON games(ended_at);
+CREATE INDEX IF NOT EXISTS idx_games_score ON games(score DESC);
+    `,
+    down: `
+DROP TABLE IF EXISTS games;
+DROP TABLE IF EXISTS stats_samples;
+DROP TABLE IF EXISTS stats_uniques;
+DROP TABLE IF EXISTS stats_daily;
+DROP TABLE IF EXISTS admin_sessions;
+    `,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {
-  await pool.query(`
+  const client = await pool.connect();
+  try {
+    // Serialises migrations if several app instances start at once.
+    await client.query('SELECT pg_advisory_lock(727274)');
+    await client.query(`
 CREATE TABLE IF NOT EXISTS schema_version (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL UNIQUE,
   applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-  `);
+);`);
 
-  for (const migration of MIGRATIONS) {
-    const existing = await pool.query(
-      'SELECT name FROM schema_version WHERE name = $1',
-      [migration.name]
-    );
-
-    if (existing.rows.length === 0) {
+    for (const migration of MIGRATIONS) {
+      const existing = await client.query('SELECT 1 FROM schema_version WHERE name = $1', [migration.name]);
+      if (existing.rows.length > 0) continue;
       try {
-        await pool.query('BEGIN');
-        await pool.query(migration.up);
-        await pool.query('INSERT INTO schema_version (name) VALUES ($1)', [
-          migration.name,
-        ]);
-        await pool.query('COMMIT');
-
+        await client.query('BEGIN');
+        await client.query(migration.up);
+        await client.query('INSERT INTO schema_version (name) VALUES ($1)', [migration.name]);
+        await client.query('COMMIT');
         logger.info({ migration: migration.name }, 'Migration applied');
       } catch (err) {
-        await pool.query('ROLLBACK');
-        logger.error(
-          { migration: migration.name, err },
-          'Migration failed'
-        );
+        await client.query('ROLLBACK');
+        logger.error({ migration: migration.name, err }, 'Migration failed');
         throw err;
       }
     }
+  } finally {
+    await client.query('SELECT pg_advisory_unlock(727274)').catch(() => undefined);
+    client.release();
   }
 }
 

@@ -15,6 +15,8 @@ import {
 import type { GameEngine, Room, Snake } from '../game/engine.js';
 import { createChildLogger } from '../logger.js';
 import { config } from '../config.js';
+import { enabledSkinIds } from '../settings.js';
+import { stats } from '../stats.js';
 
 const logger = createChildLogger('ws');
 
@@ -102,6 +104,7 @@ export class GameSocketServer {
       alive: true,
     };
     this.clients.add(client);
+    stats.inc('connections');
 
     socket.on('pong', () => {
       client.alive = true;
@@ -156,7 +159,13 @@ export class GameSocketServer {
     room ??= this.engine.findRoom();
     if (!room) return this.sendError(client, 'SERVER_FULL');
 
-    const snake = room.addPlayer(parsed.data.sessionId, nickname);
+    const { skin: wanted, d: device, l: lang } = parsed.data;
+    const skin = enabledSkinIds().includes(wanted) ? wanted : enabledSkinIds()[0];
+    const snake = room.addPlayer(parsed.data.sessionId, nickname, skin, device, lang);
+    stats.inc('game_start', device);
+    stats.inc('game_lang', lang);
+    stats.inc('skin', String(skin));
+    stats.unique('player', parsed.data.sessionId);
     client.room = room;
     client.snakeId = snake.id;
     client.sessionId = parsed.data.sessionId;
@@ -175,22 +184,45 @@ export class GameSocketServer {
 
   private onClose(client: Client): void {
     if (client.room && client.snakeId) {
-      client.room.removeSnake(client.snakeId);
+      const snake = client.room.removeSnake(client.snakeId);
       this.bySnake.delete(`${client.room.id}:${client.snakeId}`);
+      if (snake) this.recordGame(snake, 'quit');
     }
     this.clients.delete(client);
+  }
+
+  private recordGame(s: Snake, reason: 'snake' | 'wall' | 'quit'): void {
+    stats.game({
+      startedAt: s.bornAt,
+      endedAt: Date.now(),
+      nickname: s.nickname,
+      score: Math.floor(s.peakMass),
+      kills: s.kills,
+      reason,
+      device: s.device,
+      lang: s.lang,
+      skin: s.skin,
+    });
   }
 
   private broadcast(rooms: Room[]): void {
     for (const room of rooms) {
       for (const d of room.takeDeaths()) {
-        if (d.isBot) continue;
-        const key = `${room.id}:${d.snakeId}`;
+        if (d.killer) {
+          stats.inc('kill', d.killer.isBot ? 'bot' : 'player');
+          if (!d.killer.isBot) {
+            const killerClient = this.bySnake.get(`${room.id}:${d.killer.id}`);
+            if (killerClient) this.send(killerClient, { type: 'kill', name: d.snake.nickname });
+          }
+        }
+        if (d.snake.isBot) continue;
+        this.recordGame(d.snake, d.reason);
+        const key = `${room.id}:${d.snake.id}`;
         const client = this.bySnake.get(key);
         this.bySnake.delete(key);
         if (!client) continue;
         client.snakeId = 0;
-        this.send(client, { type: 'died', score: d.score, killer: d.killer, reason: d.reason });
+        this.send(client, { type: 'died', score: d.score, killer: d.killer?.nickname ?? null, reason: d.reason });
       }
     }
 

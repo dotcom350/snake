@@ -11,6 +11,8 @@ export interface JoystickView {
 export class Controls {
   angle = 0;
   hasInput = false;
+  /** 'joystick': drag relative to where the finger landed. 'follow': steer towards the finger. */
+  mode: 'joystick' | 'follow' = 'joystick';
   joystick: JoystickView = { active: false, baseX: 0, baseY: 0, knobX: 0, knobY: 0 };
 
   private pointerBoost = false;
@@ -80,7 +82,8 @@ export class Controls {
     if (this.stickId === null) {
       this.stickId = e.pointerId;
       this.surface.setPointerCapture(e.pointerId);
-      this.joystick = { active: true, baseX: e.clientX, baseY: e.clientY, knobX: e.clientX, knobY: e.clientY };
+      if (this.mode === 'follow') this.aimFromCenter(e);
+      else this.joystick = { active: true, baseX: e.clientX, baseY: e.clientY, knobX: e.clientX, knobY: e.clientY };
     } else {
       this.boostTouches.add(e.pointerId);
     }
@@ -92,6 +95,10 @@ export class Controls {
       return;
     }
     if (e.pointerId !== this.stickId) return;
+    if (this.mode === 'follow') {
+      this.aimFromCenter(e);
+      return;
+    }
     const dx = e.clientX - this.joystick.baseX;
     const dy = e.clientY - this.joystick.baseY;
     const len = Math.hypot(dx, dy);

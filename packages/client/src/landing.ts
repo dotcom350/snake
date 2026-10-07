@@ -1,6 +1,8 @@
 import './landing.css';
 import { isValidNickname, normalizeNickname } from '@snake/shared/protocol';
 import { storage } from './storage';
+import { siteConfig } from './site';
+import { loadPrefs, savePrefs } from './prefs';
 
 type Locale = 'en' | 'es';
 
@@ -66,6 +68,47 @@ form.addEventListener('submit', async (event) => {
     showError(form.dataset.errConnect ?? '');
   }
 });
+
+async function initSkinPicker(): Promise<void> {
+  const picker = document.getElementById('skin-picker');
+  if (!picker) return;
+  const skins = siteConfig().appearance.skins;
+  const choices = skins.map((s, i) => ({ s, i })).filter((x) => x.s.enabled);
+  if (!choices.length) return;
+  const { drawSkinPreview } = await import('./game/skins');
+  const canvas = picker.querySelector('canvas')!;
+  const name = picker.querySelector<HTMLSpanElement>('.skin-name')!;
+  const prefs = loadPrefs();
+  let pos = Math.max(0, choices.findIndex((c) => c.i === prefs.skin));
+
+  const select = (next: number) => {
+    pos = (next + choices.length) % choices.length;
+    name.textContent = choices[pos].s.name;
+    prefs.skin = choices[pos].i;
+    savePrefs(prefs);
+  };
+  for (const b of picker.querySelectorAll<HTMLButtonElement>('.skin-nav')) {
+    b.addEventListener('click', () => select(pos + Number(b.dataset.dir)));
+  }
+  let startX = 0;
+  canvas.addEventListener('pointerdown', (e) => (startX = e.clientX));
+  canvas.addEventListener('pointerup', (e) => {
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 30) select(pos + (dx < 0 ? 1 : -1));
+    else select(pos + 1);
+  });
+  select(pos);
+  picker.hidden = false;
+
+  const animate = (time: number) => {
+    requestAnimationFrame(animate);
+    if (document.hidden || document.body.classList.contains('in-game')) return;
+    drawSkinPreview(canvas, choices[pos].s, time);
+  };
+  requestAnimationFrame(animate);
+}
+
+void initSkinPicker();
 
 const whenIdle = (cb: () => void) =>
   'requestIdleCallback' in window ? requestIdleCallback(cb, { timeout: 3000 }) : setTimeout(cb, 1500);

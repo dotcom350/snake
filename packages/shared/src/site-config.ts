@@ -1,0 +1,159 @@
+export const SKIN_PATTERNS = ['solid', 'bands', 'stripes', 'gradient', 'rainbow', 'scales', 'spots', 'neon', 'galaxy'] as const;
+export const HEAD_SHAPES = ['round', 'viper', 'cute'] as const;
+export const BG_PATTERNS = ['hex', 'grid', 'dots', 'none'] as const;
+export const MUSIC_STYLES = ['chill', 'arcade', 'off'] as const;
+export const MAX_SKINS = 48;
+
+export type SkinPattern = (typeof SKIN_PATTERNS)[number];
+export type HeadShape = (typeof HEAD_SHAPES)[number];
+export type BgPattern = (typeof BG_PATTERNS)[number];
+export type MusicStyle = (typeof MUSIC_STYLES)[number];
+
+export interface SkinDef {
+  name: string;
+  pattern: SkinPattern;
+  head: HeadShape;
+  colors: string[];
+  glow: boolean;
+  enabled: boolean;
+}
+
+export interface Appearance {
+  background: string;
+  bgPattern: BgPattern;
+  patternColor: string;
+  patternOpacity: number;
+  outside: string;
+  border: string;
+  foodGlow: number;
+  foodColors: string[];
+  landingAccent: string;
+  landingAccent2: string;
+  landingBackground: string;
+  skins: SkinDef[];
+}
+
+export interface SoundSettings {
+  enabled: boolean;
+  musicStyle: MusicStyle;
+  musicVolume: number;
+  sfxVolume: number;
+  customMusicUrl: string | null;
+}
+
+/** null = use the value from the server's resource profile. */
+export interface GameSettings {
+  arenaSize: number | null;
+  playersPerRoom: number | null;
+  botsPerRoom: number | null;
+  foodPerRoom: number | null;
+  speed: number;
+  boostSpeed: number;
+  boostCost: number;
+  startMass: number;
+  spawnProtectionSec: number;
+}
+
+export interface AdSettings {
+  enabled: boolean;
+  headCode: string;
+  landingCode: string;
+  deathCode: string;
+  deathEvery: number;
+  adsTxt: string;
+}
+
+export interface GeneralSettings {
+  timeZone: string;
+}
+
+export interface AllSettings {
+  appearance: Appearance;
+  sound: SoundSettings;
+  game: GameSettings;
+  ads: AdSettings;
+  general: GeneralSettings;
+}
+
+export type SettingsSection = keyof AllSettings;
+
+export const DEFAULT_SKINS: SkinDef[] = [
+  { name: 'Mint', pattern: 'solid', head: 'round', colors: ['#4ecdc4'], glow: false, enabled: true },
+  { name: 'Coral', pattern: 'bands', head: 'round', colors: ['#e8343b', '#151515', '#ffd23f', '#151515'], glow: false, enabled: true },
+  { name: 'Python', pattern: 'scales', head: 'viper', colors: ['#c9a227', '#4a300c', '#e3c25a'], glow: false, enabled: true },
+  { name: 'Green Viper', pattern: 'scales', head: 'viper', colors: ['#43b047', '#14451a', '#9be29e'], glow: false, enabled: true },
+  { name: 'Neon Pink', pattern: 'neon', head: 'round', colors: ['#ff2fd6'], glow: true, enabled: true },
+  { name: 'Neon Cyan', pattern: 'neon', head: 'round', colors: ['#00e5ff'], glow: true, enabled: true },
+  { name: 'Rainbow', pattern: 'rainbow', head: 'cute', colors: ['#ff0000'], glow: true, enabled: true },
+  { name: 'Tiger', pattern: 'stripes', head: 'viper', colors: ['#ff8c1a', '#1a1a1a'], glow: false, enabled: true },
+  { name: 'Galaxy', pattern: 'galaxy', head: 'round', colors: ['#2b1055', '#7597de', '#ffffff'], glow: true, enabled: true },
+  { name: 'Lava', pattern: 'gradient', head: 'viper', colors: ['#ffeb3b', '#ff5722', '#b71c1c'], glow: true, enabled: true },
+  { name: 'Ice', pattern: 'gradient', head: 'cute', colors: ['#e0f7ff', '#4fc3f7', '#1565c0'], glow: true, enabled: true },
+  { name: 'Leopard', pattern: 'spots', head: 'round', colors: ['#f4c542', '#5a3a0a'], glow: false, enabled: true },
+  { name: 'Zebra', pattern: 'stripes', head: 'cute', colors: ['#f5f5f5', '#222222'], glow: false, enabled: true },
+  { name: 'Gold', pattern: 'solid', head: 'viper', colors: ['#ffc928'], glow: true, enabled: true },
+  { name: 'Toxic', pattern: 'spots', head: 'cute', colors: ['#a6ff00', '#2e7d32'], glow: true, enabled: true },
+  { name: 'Royal', pattern: 'bands', head: 'round', colors: ['#7b1fa2', '#ffd54f'], glow: false, enabled: true },
+];
+
+export const DEFAULT_SETTINGS: AllSettings = {
+  appearance: {
+    background: '#0d1428',
+    bgPattern: 'hex',
+    patternColor: '#7896ff',
+    patternOpacity: 0.08,
+    outside: '#1a0d18',
+    border: '#ff5d73',
+    foodGlow: 0.8,
+    foodColors: ['#ff5d73', '#4ecdc4', '#ffd166', '#8c7bff', '#5ee06a', '#ff8c42', '#3fa7ff', '#f15bb5'],
+    landingAccent: '#4ecdc4',
+    landingAccent2: '#5ee06a',
+    landingBackground: '#0b1020',
+    skins: DEFAULT_SKINS,
+  },
+  sound: {
+    enabled: true,
+    musicStyle: 'chill',
+    musicVolume: 0.35,
+    sfxVolume: 0.6,
+    customMusicUrl: null,
+  },
+  game: {
+    arenaSize: null,
+    playersPerRoom: null,
+    botsPerRoom: null,
+    foodPerRoom: null,
+    speed: 165,
+    boostSpeed: 330,
+    boostCost: 7,
+    startMass: 10,
+    spawnProtectionSec: 2.5,
+  },
+  ads: {
+    enabled: false,
+    headCode: '',
+    landingCode: '',
+    deathCode: '',
+    deathEvery: 2,
+    adsTxt: '',
+  },
+  general: {
+    timeZone: 'UTC',
+  },
+};
+
+/** What the public pages and the game client receive. */
+export interface PublicConfig {
+  appearance: Omit<Appearance, 'landingAccent' | 'landingAccent2' | 'landingBackground'>;
+  sound: SoundSettings;
+  ads: { enabled: boolean; deathCode: string; deathEvery: number };
+}
+
+export function toPublicConfig(s: AllSettings): PublicConfig {
+  const { landingAccent: _a, landingAccent2: _b, landingBackground: _c, ...appearance } = s.appearance;
+  return {
+    appearance,
+    sound: s.sound,
+    ads: { enabled: s.ads.enabled, deathCode: s.ads.enabled ? s.ads.deathCode : '', deathEvery: s.ads.deathEvery },
+  };
+}

@@ -1,18 +1,14 @@
 import { randomUUID } from 'crypto';
-import { SNAKE_COLORS, snakeRadius, foodRadius } from '@snake/shared';
+import { snakeRadius, foodRadius } from '@snake/shared';
 import { CellGrid, BodyGrid } from './spatial-grid.js';
 import { createChildLogger } from '../logger.js';
 import { config } from '../config.js';
+import { gameConfig, enabledSkinIds, settings } from '../settings.js';
 
 const logger = createChildLogger('game');
 
-const BASE_SPEED = 165;
-const BOOST_SPEED = 330;
 const TURN_RATE = 4.2;
-const START_MASS = 10;
 const MIN_BOOST_MASS = 14;
-const BOOST_COST = 7;
-const SPAWN_PROTECTION_MS = 2500;
 const POINT_SPACING_GUESS = 9;
 const BOT_NAMES = [
   'Viper', 'Cobra', 'Mamba', 'Python', 'Boa', 'Kraken', 'Noodle', 'Slinky', 'Zigzag', 'Pixel',
@@ -39,9 +35,12 @@ export interface Snake {
   boostDrop: number;
   protectedUntil: number;
   protected: boolean;
-  color: number;
+  skin: number;
   kills: number;
   bornAt: number;
+  peakMass: number;
+  device: 'm' | 'd';
+  lang: 'en' | 'es';
   thinkOffset: number;
 }
 
@@ -54,10 +53,9 @@ export interface Food {
 }
 
 export interface DeathEvent {
-  snakeId: number;
-  isBot: boolean;
+  snake: Snake;
   score: number;
-  killer: string | null;
+  killer: Snake | null;
   reason: 'snake' | 'wall';
 }
 
@@ -69,6 +67,15 @@ function normAngle(a: number): number {
   return a - Math.PI;
 }
 
+function foodColorCount(): number {
+  return Math.max(1, Math.min(16, settings().appearance.foodColors.length));
+}
+
+function randomSkin(): number {
+  const ids = enabledSkinIds();
+  return ids[Math.floor(Math.random() * ids.length)];
+}
+
 function targetLength(mass: number): number {
   return Math.min(40 + mass * 4, config.resourceConfig.maxSnakeLength * POINT_SPACING_GUESS);
 }
@@ -76,8 +83,8 @@ function targetLength(mass: number): number {
 export class Room {
   readonly id = randomUUID();
   readonly createdAt = Date.now();
-  readonly width = config.resourceConfig.arenaWidth;
-  readonly height = config.resourceConfig.arenaHeight;
+  readonly width = gameConfig().arenaSize;
+  readonly height = gameConfig().arenaSize;
   lastHumanAt = Date.now();
   tickCount = 0;
   readonly snakes = new Map<number, Snake>();
@@ -89,8 +96,12 @@ export class Room {
   private readonly bodyGrid = new BodyGrid(64);
   private deaths: DeathEvent[] = [];
   private botRespawnAt = 0;
-  private readonly foodTarget = Math.floor(config.resourceConfig.maxFoodPerRoom * 0.85);
-  private readonly foodHardCap = config.resourceConfig.maxFoodPerRoom * 2;
+  private get foodTarget(): number {
+    return Math.floor(gameConfig().foodPerRoom * 0.85);
+  }
+  private get foodHardCap(): number {
+    return gameConfig().foodPerRoom * 2;
+  }
 
   constructor() {
     while (this.food.size < this.foodTarget) this.spawnFood();
@@ -106,13 +117,18 @@ export class Room {
     return this.snakes.size - this.humanCount();
   }
 
-  addPlayer(sessionId: string, nickname: string): Snake {
+  addPlayer(sessionId: string, nickname: string, skin: number, device: 'm' | 'd', lang: 'en' | 'es'): Snake {
     this.lastHumanAt = Date.now();
-    return this.spawnSnake(sessionId, nickname, false, START_MASS);
+    const s = this.spawnSnake(sessionId, nickname, false, gameConfig().startMass, skin);
+    s.device = device;
+    s.lang = lang;
+    return s;
   }
 
-  removeSnake(id: number): void {
+  removeSnake(id: number): Snake | undefined {
+    const s = this.snakes.get(id);
     this.snakes.delete(id);
+    return s;
   }
 
   setInput(id: number, angle: number, boost: boolean): void {
@@ -171,7 +187,7 @@ export class Room {
     return best;
   }
 
-  private spawnSnake(sessionId: string, nickname: string, isBot: boolean, mass: number): Snake {
+  private spawnSnake(sessionId: string, nickname: string, isBot: boolean, mass: number, skin: number): Snake {
     const now = Date.now();
     const head = this.findSpawnPoint();
     const toCenter = Math.atan2(this.height / 2 - head.y, this.width / 2 - head.x);
@@ -194,11 +210,14 @@ export class Room {
       wantsBoost: false,
       boosting: false,
       boostDrop: 0,
-      protectedUntil: now + SPAWN_PROTECTION_MS,
+      protectedUntil: now + gameConfig().spawnProtectionMs,
       protected: true,
-      color: Math.floor(Math.random() * SNAKE_COLORS.length),
+      skin,
       kills: 0,
       bornAt: now,
+      peakMass: mass,
+      device: 'd',
+      lang: 'en',
       thinkOffset: Math.floor(Math.random() * 4),
     };
     this.snakes.set(snake.id, snake);
@@ -221,7 +240,7 @@ export class Room {
       20 + Math.random() * (this.width - 40),
       20 + Math.random() * (this.height - 40),
       size,
-      Math.floor(Math.random() * SNAKE_COLORS.length)
+      Math.floor(Math.random() * foodColorCount())
     );
   }
 
@@ -239,19 +258,14 @@ export class Room {
     const count = Math.max(1, Math.min(120, Math.ceil(total / 3), s.points.length));
     const size = Math.max(1, Math.min(5, Math.round(total / count)));
     const step = s.points.length / count;
+    const dropColor = Math.floor(Math.random() * foodColorCount());
     const r = snakeRadius(s.mass);
     for (let i = 0; i < count; i++) {
       const p = s.points[Math.floor(i * step)];
-      this.addFood(p.x + (Math.random() - 0.5) * r * 1.6, p.y + (Math.random() - 0.5) * r * 1.6, size, s.color);
+      this.addFood(p.x + (Math.random() - 0.5) * r * 1.6, p.y + (Math.random() - 0.5) * r * 1.6, size, dropColor);
     }
 
-    this.deaths.push({
-      snakeId: s.id,
-      isBot: s.isBot,
-      score: Math.floor(s.mass),
-      killer: killer ? killer.nickname : null,
-      reason,
-    });
+    this.deaths.push({ snake: s, score: Math.floor(s.peakMass), killer, reason });
   }
 
   private trim(s: Snake): void {
@@ -274,6 +288,7 @@ export class Room {
 
   tick(dt: number, now: number): void {
     this.tickCount++;
+    const g = gameConfig();
     if (this.humanCount() > 0) this.lastHumanAt = now;
 
     for (const s of this.snakes.values()) {
@@ -284,7 +299,7 @@ export class Room {
       s.angle = normAngle(s.angle + Math.max(-turn, Math.min(turn, diff)));
 
       s.boosting = s.wantsBoost && s.mass > MIN_BOOST_MASS;
-      const speed = s.boosting ? BOOST_SPEED : BASE_SPEED;
+      const speed = s.boosting ? g.boostSpeed : g.speed;
       const head = s.points[0];
       const nx = head.x + Math.cos(s.angle) * speed * dt;
       const ny = head.y + Math.sin(s.angle) * speed * dt;
@@ -292,12 +307,12 @@ export class Room {
       s.seq++;
 
       if (s.boosting) {
-        const cost = BOOST_COST * dt;
+        const cost = g.boostCost * dt;
         s.mass -= cost;
         s.boostDrop += cost * 0.6;
         if (s.boostDrop >= 2) {
           const tail = s.points[s.points.length - 1];
-          this.addFood(tail.x, tail.y, 2, s.color);
+          this.addFood(tail.x, tail.y, 2, Math.floor(Math.random() * foodColorCount()));
           s.boostDrop -= 2;
         }
       }
@@ -312,6 +327,7 @@ export class Room {
         const dy = f.y - ny;
         if (dx * dx + dy * dy <= reach * reach) {
           s.mass += f.size;
+          if (s.mass > s.peakMass) s.peakMass = s.mass;
           this.removeFood(f);
         }
       });
@@ -423,7 +439,8 @@ export class Room {
   private manageBots(now: number): void {
     if (!config.env.BOT_ENABLE) return;
     const humans = this.humanCount();
-    const target = Math.max(0, Math.min(config.resourceConfig.botMinPerRoom, config.resourceConfig.roomCapacity - humans));
+    const g = gameConfig();
+    const target = Math.max(0, Math.min(g.botsPerRoom, g.playersPerRoom - humans));
     const bots = this.snakes.size - humans;
 
     if (bots < target && now >= this.botRespawnAt) {
@@ -431,7 +448,7 @@ export class Room {
       const free = BOT_NAMES.filter((n) => !used.has(n));
       const pool = free.length ? free : BOT_NAMES;
       const name = pool[Math.floor(Math.random() * pool.length)];
-      this.spawnSnake('bot', name, true, START_MASS + Math.random() * 50);
+      this.spawnSnake('bot', name, true, g.startMass + Math.random() * 50, randomSkin());
       this.botRespawnAt = now + 1200;
     } else if (bots > target) {
       let smallest: Snake | null = null;
@@ -488,7 +505,7 @@ export class GameEngine {
     let best: Room | null = null;
     for (const room of this.rooms.values()) {
       const humans = room.humanCount();
-      if (humans < config.resourceConfig.roomCapacity && (!best || humans > best.humanCount())) best = room;
+      if (humans < gameConfig().playersPerRoom && (!best || humans > best.humanCount())) best = room;
     }
     if (best) return best;
     if (this.rooms.size >= config.resourceConfig.maxRooms) return null;

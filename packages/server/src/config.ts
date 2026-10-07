@@ -66,7 +66,9 @@ const EnvSchema = z.object({
   // SSL/TLS
   SSL_ENABLED: z.enum(['true', 'false']).transform(v => v === 'true').default(false),
   // Public URL used for canonical/hreflang/sitemap links, e.g. https://snake.example.com
-  SITE_URL: z.union([z.url(), z.literal('')]).optional(),
+  SITE_URL: z.url().optional(),
+  // Persistent files (uploaded music). Mount a volume here in production.
+  DATA_DIR: z.string().default('./data'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -78,7 +80,8 @@ export class Config {
   resourceConfig: ResourceConfig;
 
   constructor(env: Partial<Env> = process.env as Partial<Env>) {
-    const parsed = EnvSchema.parse(env);
+    const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== '' && v !== undefined));
+    const parsed = EnvSchema.parse(cleaned);
     this.env = parsed;
 
     const baseProfile = getResourceConfig(

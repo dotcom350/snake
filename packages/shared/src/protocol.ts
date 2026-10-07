@@ -3,11 +3,6 @@ import type { ErrorCode } from './types.js';
 export const PROTOCOL_VERSION = 2;
 export const MSG_STATE = 1;
 
-export const SNAKE_COLORS = [
-  '#ff5d73', '#4ecdc4', '#ffd166', '#8c7bff', '#5ee06a', '#ff8c42',
-  '#3fa7ff', '#f15bb5', '#00e0c6', '#c3f73a', '#ff6b35', '#b388ff',
-] as const;
-
 export const NICKNAME_MAX = 16;
 export const NICKNAME_PATTERN = /^[\p{L}\p{N} _.\-]{1,16}$/u;
 
@@ -27,8 +22,10 @@ export function foodRadius(size: number): number {
   return 3 + size * 1.6;
 }
 
+export type Device = 'm' | 'd';
+
 export type ClientMessage =
-  | { type: 'join'; nickname: string; sessionId: string }
+  | { type: 'join'; nickname: string; sessionId: string; skin: number; d: Device; l: 'en' | 'es' }
   | { type: 'input'; a: number; b: boolean };
 
 /** [id, nickname] */
@@ -40,11 +37,12 @@ export type ServerMessage =
   | { type: 'joined'; id: number; arena: { w: number; h: number }; tickHz: number }
   | { type: 'meta'; players: MetaPlayer[]; top: MetaTopEntry[]; rank: number; count: number }
   | { type: 'died'; score: number; killer: string | null; reason: 'snake' | 'wall' }
+  | { type: 'kill'; name: string }
   | { type: 'error'; code: ErrorCode };
 
 export interface EncodableSnake {
   id: number;
-  color: number;
+  skin: number;
   boosting: boolean;
   protected: boolean;
   mass: number;
@@ -63,7 +61,7 @@ export interface EncodableFood {
 
 export interface DecodedSnake {
   id: number;
-  color: number;
+  skin: number;
   boosting: boolean;
   protected: boolean;
   mass: number;
@@ -126,7 +124,7 @@ export function encodeState(
     const s = snakes[i];
     const idx = indices[i];
     v.setUint16(o, s.id, true); o += 2;
-    v.setUint8(o, s.color); o += 1;
+    v.setUint8(o, s.skin & 0xff); o += 1;
     v.setUint8(o, (s.boosting ? 1 : 0) | (s.protected ? 2 : 0)); o += 1;
     v.setUint16(o, Math.min(0xffff, Math.max(0, Math.round(s.mass))), true); o += 2;
     v.setUint16(o, idx.length, true); o += 2;
@@ -160,7 +158,7 @@ export function decodeState(buffer: ArrayBuffer): DecodedState {
   const snakes: DecodedSnake[] = new Array(snakeCount);
   for (let i = 0; i < snakeCount; i++) {
     const id = v.getUint16(o, true); o += 2;
-    const color = v.getUint8(o); o += 1;
+    const skin = v.getUint8(o); o += 1;
     const flags = v.getUint8(o); o += 1;
     const mass = v.getUint16(o, true); o += 2;
     const n = v.getUint16(o, true); o += 2;
@@ -169,7 +167,7 @@ export function decodeState(buffer: ArrayBuffer): DecodedState {
       points[j * 2] = v.getInt16(o, true); o += 2;
       points[j * 2 + 1] = v.getInt16(o, true); o += 2;
     }
-    snakes[i] = { id, color, boosting: (flags & 1) !== 0, protected: (flags & 2) !== 0, mass, points };
+    snakes[i] = { id, skin, boosting: (flags & 1) !== 0, protected: (flags & 2) !== 0, mass, points };
   }
 
   const foodCount = v.getUint16(o, true); o += 2;

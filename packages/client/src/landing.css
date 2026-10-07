@@ -447,3 +447,77 @@ body.in-game {
 body.in-game .page {
   display: none;
 }
+
+.skin-picker {
+  margin-top: 14px;
+}
+
+.skin-picker[hidden] {
+  display: none;
+}
+
+.skin-title {
+  display: block;
+  margin: 0 0 6px 4px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.skin-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.skin-nav {
+  flex: 0 0 44px;
+  height: 44px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.skin-nav:hover {
+  border-color: var(--accent);
+}
+
+.skin-view {
+  position: relative;
+  flex: 1;
+  height: 70px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.skin-view canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.skin-name {
+  position: absolute;
+  right: 10px;
+  bottom: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ad-slot {
+  display: flex;
+  justify-content: center;
+  max-width: 728px;
+  margin: 22px auto 0;
+  overflow: hidden;
+}

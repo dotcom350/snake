@@ -10,6 +10,9 @@ export const JoinMessageSchema = z.object({
   type: z.literal('join'),
   nickname: z.string().min(1).max(64),
   sessionId: z.string().regex(/^[A-Za-z0-9-]{8,64}$/),
+  skin: z.number().int().min(0).max(255).default(0),
+  d: z.enum(['m', 'd']).default('d'),
+  l: z.enum(['en', 'es']).default('en'),
 });
 
 export const ReviveClaimSchema = z.object({

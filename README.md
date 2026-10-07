@@ -159,36 +159,30 @@ docker compose exec -T postgres psql -U postgres snake_game < backup.sql
 
 ## Admin Panel
 
-Access the admin panel at `/admin` (after deployment).
+Open `/admin` on your site. The panel is available in English and Spanish.
 
-### Authentication
-- Bootstrap admin is created on first startup with `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD`
-- Login required for all admin pages
-- Separate permissions: `view_metrics` and `edit_settings`
+### First login
+Set `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` in the environment (Dokploy → Environment) and redeploy. The account is created only when no admin exists yet; change the password afterwards in **Account**. There are no default credentials.
+
+Security: passwords are hashed with scrypt, logins are rate-limited, sessions expire after 12 hours and the session token lives only in the admin tab (not in a cookie), so ad scripts on the public pages cannot use it. Every change is written to the audit log.
 
 ### Pages
+- **Dashboard**: players online, bots, rooms, connections, memory, tick time (live, every 5 s), today vs. yesterday, players online over the last 48 h, active rooms.
+- **Statistics** (7/30/90/365 days): visitors, page views, games, unique players, play time, average game, kills, peak players, devices, languages, most used snakes, how games end, referrers, search-engine and social bots (SEO), ad impressions, top scores today and all time.
+- **Ads**: code for `<head>`, a banner on the home page, an ad on the "You died" screen (every N deaths) and the contents of `/ads.txt`.
+- **Appearance**: arena background color and pattern, wall color, food colors and glow, home-page colors, with a live preview.
+- **Snakes**: create, edit, enable or delete skins (pattern, head shape, up to 6 colors, glow). Players pick their snake on the home page.
+- **Gameplay**: arena size, players and bots per room, food, speed, boost speed and cost, starting length, spawn protection. Empty fields use the automatic server profile.
+- **Sound**: generated background music (chill/arcade/off), default volumes, upload your own MP3/OGG/M4A/WAV, test buttons.
+- **Account**: change password, time zone used by statistics, audit log.
 
-- **Dashboard**: Real-time player count, peak concurrent, retention cohorts
-- **Rooms**: Inspect, close, adjust capacity
-- **Players**: Kick players, view moderation history
-- **Gameplay**: Configure tick rate, room size, boost, revival settings
-- **Advertising**: Manage Monetag configuration (if available)
-- **Analytics**: Charts, CSV export, date filtering
-- **Audit Log**: Track all configuration changes
+Uploaded music is stored in the `app_data` volume (`/app/data`).
 
-## Advertising (Monetag)
+## Advertising (Monetag and others)
 
-**Important**: Rewarded ads are documented by Monetag only for Telegram Mini Apps. Standard websites do not have an officially documented verification flow.
+Paste the tags from your ad network in **Admin → Ads**. Pages are served with a per-request CSP nonce plus `strict-dynamic`, so ad scripts (and the scripts they load) run without weakening the policy for the rest of the site. Ads never pause the game.
 
-Currently:
-- Rewarded revival is **disabled** in production
-- Non-rewarded ad formats (banners, popunders) can still be configured
-- The Advertising admin page allows safe configuration without code injection
-
-To enable when Monetag adds website support:
-1. Paste script URL in admin panel
-2. Revive UI will update
-3. Admin page will show verified status
+Rewarded ads with server-verified rewards are only documented by Monetag for Telegram Mini Apps, so the game does not offer "watch an ad to revive".
 
 ## Testing
 
