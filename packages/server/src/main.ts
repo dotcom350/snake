@@ -34,6 +34,13 @@ async function main() {
     // Register plugins
     await fastify.register(fastifyHelmet, {
       crossOriginResourcePolicy: false,
+      hsts: false,
+      contentSecurityPolicy: {
+        directives: {
+          upgradeInsecureRequests: null,
+          connectSrc: ["'self'", 'ws:', 'wss:'],
+        },
+      },
     });
 
     await fastify.register(fastifyCors, {
