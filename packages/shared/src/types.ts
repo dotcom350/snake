@@ -1,87 +1,5 @@
 export type Locale = 'en' | 'es';
 
-export interface Vec2 {
-  x: number;
-  y: number;
-}
-
-export interface SnakeSegment {
-  x: number;
-  y: number;
-}
-
-export interface Snake {
-  id: string;
-  sessionId: string;
-  nickname: string;
-  segments: SnakeSegment[];
-  direction: number; // 0=up, 1=right, 2=down, 3=left
-  nextDirection: number;
-  mass: number;
-  boost: number;
-  boosting: boolean;
-  protected: boolean;
-  protectedUntil: number; // unix ms
-  isDead: boolean;
-  color: string; // hex
-  runId: string;
-  peakScore: number;
-}
-
-export interface Food {
-  id: string;
-  x: number;
-  y: number;
-  mass: number;
-}
-
-export interface Room {
-  id: string;
-  tick: number;
-  snakes: Map<string, Snake>;
-  bots: Set<string>;
-  food: Map<string, Food>;
-  createdAt: number;
-  lastActivityAt: number;
-}
-
-export interface GameState {
-  tick: number;
-  time: number;
-  snakes: SnakeSnapshot[];
-  food: FoodSnapshot[];
-  leaderboard: LeaderboardEntry[];
-}
-
-export interface SnakeSnapshot {
-  id: string;
-  nickname: string;
-  color: string;
-  segments: [number, number][]; // [x, y][]
-  mass: number;
-  boosting: boolean;
-  protected: boolean;
-}
-
-export interface FoodSnapshot {
-  id: string;
-  x: number;
-  y: number;
-}
-
-export interface LeaderboardEntry {
-  rank: number;
-  nickname: string;
-  score: number;
-  isBot: boolean;
-}
-
-export interface InputIntent {
-  direction: number; // 0, 1, 2, 3
-  boost: boolean;
-  timestamp: number;
-}
-
 export interface Session {
   id: string;
   nickname: string;
@@ -142,6 +60,7 @@ export type ErrorCode =
   | 'NICKNAME_INVALID'
   | 'NICKNAME_TAKEN'
   | 'ROOM_FULL'
+  | 'SERVER_FULL'
   | 'SESSION_EXPIRED'
   | 'INVALID_INPUT'
   | 'REVIVE_UNAVAILABLE'

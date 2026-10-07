@@ -1,123 +1,78 @@
-import Fastify from 'fastify';
-import fastifyCors from '@fastify/cors';
+import Fastify, { LogController, type FastifyBaseLogger } from 'fastify';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
-import { logger, createChildLogger } from './logger.js';
+import { logger } from './logger.js';
 import { initDatabase, closeDatabase } from './db/index.js';
 import { GameEngine } from './game/engine.js';
-import { WebSocketServer } from './ws/index.js';
+import { GameSocketServer } from './ws/index.js';
 import { registerRoutes } from './api/routes.js';
+import { registerPages } from './pages.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const serverLogger = createChildLogger('server');
+const publicDir = path.join(__dirname, '../../client/dist');
 
 async function main() {
-  let gameEngine: GameEngine | null = null;
-  let wsServer: WebSocketServer | null = null;
+  logger.info({ ...config.resourceConfig }, 'Starting application');
 
-  try {
-    logger.info({ profile: config.resourceConfig.profile }, 'Starting application');
+  await initDatabase();
 
-    // Initialize database
-    await initDatabase();
+  const fastify = Fastify({
+    loggerInstance: logger as FastifyBaseLogger,
+    trustProxy: true,
+    logController: new LogController({ disableRequestLogging: true }),
+  });
 
-    // Create Fastify instance
-    const fastify = Fastify({
-      logger: {
-        level: config.env.LOG_LEVEL,
+  await fastify.register(fastifyHelmet, {
+    crossOriginResourcePolicy: false,
+    hsts: false,
+    contentSecurityPolicy: {
+      directives: {
+        upgradeInsecureRequests: null,
+        connectSrc: ["'self'", 'ws:', 'wss:'],
+        imgSrc: ["'self'", 'data:'],
       },
-    });
+    },
+  });
 
-    // Register plugins
-    await fastify.register(fastifyHelmet, {
-      crossOriginResourcePolicy: false,
-      hsts: false,
-      contentSecurityPolicy: {
-        directives: {
-          upgradeInsecureRequests: null,
-          connectSrc: ["'self'", 'ws:', 'wss:'],
-        },
-      },
-    });
+  await fastify.register(fastifyStatic, {
+    root: publicDir,
+    index: false,
+    wildcard: true,
+    preCompressed: true,
+    cacheControl: false,
+    allowedPath: (pathName) => !pathName.endsWith('.html'),
+    setHeaders: (res, filePath) => {
+      const immutable = filePath.includes(`${path.sep}assets${path.sep}`);
+      res.header('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'public, max-age=86400');
+    },
+  });
 
-    await fastify.register(fastifyCors, {
-      origin: config.corsOrigins.length > 0 ? config.corsOrigins : true,
-      credentials: true,
-    });
+  const engine = new GameEngine();
+  const sockets = new GameSocketServer(engine);
+  sockets.attach(fastify.server);
 
-    // Serve static files (frontend)
-    const publicDir = path.join(__dirname, '../../client/dist');
-    await fastify.register(fastifyStatic, {
-      root: publicDir,
-      constraints: {},
-    });
+  await registerRoutes(fastify, engine, sockets);
+  await registerPages(fastify, publicDir);
 
-    // Initialize game engine
-    gameEngine = new GameEngine();
-    gameEngine.start();
+  await fastify.listen({ port: config.env.SERVER_PORT, host: config.env.SERVER_HOST });
+  engine.start();
 
-    // Initialize WebSocket server
-    wsServer = new WebSocketServer(gameEngine);
-    wsServer.register(fastify);
-    wsServer.start();
-
-    // Register API routes
-    await registerRoutes(fastify, gameEngine);
-
-    // SPA fallback
-    fastify.setNotFoundHandler((request, reply) => {
-      if (request.method === 'GET' && !request.url.startsWith('/api')) {
-        return reply.sendFile('index.html');
-      }
-      return reply.code(404).send({ error: 'NOT_FOUND' });
-    });
-
-    // Start server
-    await fastify.listen(
-      {
-        port: config.env.SERVER_PORT,
-        host: config.env.SERVER_HOST,
-      },
-      (err, address) => {
-        if (err) {
-          serverLogger.error({ err }, 'Failed to start server');
-          process.exit(1);
-        }
-        serverLogger.info(
-          {
-            address,
-            nodeEnv: config.env.NODE_ENV,
-            resourceProfile: config.resourceConfig.profile,
-            tickHZ: config.resourceConfig.tickHz,
-          },
-          'Server listening'
-        );
-      }
-    );
-
-    // Graceful shutdown
-    const signals = ['SIGINT', 'SIGTERM'] as const;
-    for (const signal of signals) {
-      process.on(signal, async () => {
-        serverLogger.info({ signal }, 'Received signal, shutting down');
-
-        if (wsServer) wsServer.stop();
-        if (gameEngine) gameEngine.stop();
-
-        await fastify.close();
-        await closeDatabase();
-
-        serverLogger.info('Shutdown complete');
-        process.exit(0);
-      });
-    }
-  } catch (err) {
-    logger.error({ err }, 'Fatal error');
-    process.exit(1);
-  }
+  const shutdown = async (signal: string) => {
+    logger.info({ signal }, 'Shutting down');
+    engine.stop();
+    sockets.stop();
+    await fastify.close();
+    await closeDatabase();
+    process.exit(0);
+  };
+  process.once('SIGINT', () => void shutdown('SIGINT'));
+  process.once('SIGTERM', () => void shutdown('SIGTERM'));
 }
 
-main();
+main().catch((err) => {
+  logger.fatal({ err }, 'Fatal error');
+  process.exit(1);
+});

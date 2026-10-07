@@ -13,6 +13,10 @@ export const ERROR_MESSAGES: Record<ErrorCode, Record<Locale, string>> = {
     en: 'Room is full. Try again later.',
     es: 'La sala está llena. Intenta más tarde.',
   },
+  SERVER_FULL: {
+    en: 'The server is full. Try again in a moment.',
+    es: 'El servidor está lleno. Inténtalo de nuevo en un momento.',
+  },
   SESSION_EXPIRED: {
     en: 'Your session expired. Please start a new game.',
     es: 'Tu sesión expiró. Por favor comienza una nueva partida.',

@@ -16,7 +16,7 @@ A production-ready, low-resource optimized multiplayer snake game with modern UI
 
 ### Prerequisites
 
-- Node.js 22+ and npm
+- Node.js 24 LTS (22.12+ works) and npm
 - Docker & Docker Compose (for containerized deployment)
 - PostgreSQL 16+ (or use Docker container)
 
@@ -121,6 +121,7 @@ Dokploy provides a simple way to deploy on your own infrastructure.
    - Copy values from `.env.example`
    - Set `ADMIN_BOOTSTRAP_PASSWORD` to a secure value
    - Configure `RESOURCE_PROFILE` based on your VPS specs
+   - Set `SITE_URL` to your public URL (e.g. `https://snake.example.com`) so canonical, hreflang and sitemap links are correct
 
 5. **Configure Domain**
    - Add your domain in Dokploy
@@ -210,7 +211,7 @@ curl http://localhost:3000/readyz   # Should return ready status
 ## Architecture
 
 ### Technology Stack
-- **Frontend**: React 18 + Vite, Canvas 2D, TypeScript
+- **Frontend**: TypeScript without a framework + Vite, Canvas 2D, static SEO landing pages (EN at `/`, ES at `/es/`)
 - **Backend**: Node.js LTS, Fastify, ws (WebSocket)
 - **Database**: PostgreSQL 16, async connection pool
 - **Deployment**: Docker, Docker Compose, Dokploy

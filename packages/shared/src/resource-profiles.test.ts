@@ -10,8 +10,10 @@ describe('Resource Profiles', () => {
   });
 
   it('should detect resource profile automatically', () => {
-    const profile = detectResourceProfile();
-    expect(['low', 'standard', 'high']).toContain(profile);
+    expect(detectResourceProfile({ cpuCount: 1, memoryBytes: 1024 ** 3 })).toBe('low');
+    expect(detectResourceProfile({ cpuCount: 2, memoryBytes: 4 * 1024 ** 3 })).toBe('standard');
+    expect(detectResourceProfile({ cpuCount: 8, memoryBytes: 16 * 1024 ** 3 })).toBe('high');
+    expect(detectResourceProfile()).toBe('standard');
   });
 
   it('should return correct config for auto profile', () => {

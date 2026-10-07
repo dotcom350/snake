@@ -1,19 +1,19 @@
 {
   "name": "@snake/loadtest",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "start": "node dist/index.js",
     "build": "tsc",
-    "dev": "tsx src/index.ts"
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "@snake/shared": "*",
-    "ws": "^8.15.0"
+    "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/ws": "^8.5.0",
-    "typescript": "^5.4.0"
+    "@types/node": "^24.19.1",
+    "@types/ws": "^8.18.2",
+    "typescript": "^7.0.2"
   }
 }

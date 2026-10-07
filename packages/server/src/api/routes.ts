@@ -1,52 +1,38 @@
 import type { FastifyInstance } from 'fastify';
-import { GameEngine } from '../game/engine.js';
-import { createChildLogger } from '../logger.js';
-
-const logger = createChildLogger('api');
+import type { GameEngine } from '../game/engine.js';
+import type { GameSocketServer } from '../ws/index.js';
 
 export async function registerRoutes(
   fastify: FastifyInstance,
-  engine: GameEngine
+  engine: GameEngine,
+  sockets: GameSocketServer
 ): Promise<void> {
-  // Health check
-  fastify.get('/healthz', async (_request, reply) => {
-    return reply.status(200).send({ status: 'ok' });
-  });
+  fastify.get('/healthz', async () => ({ status: 'ok' }));
 
-  // Readiness check
-  fastify.get('/readyz', async (_request, reply) => {
-    const metrics = engine.getTotalMetrics();
-    return reply.status(200).send({
-      status: 'ready',
-      timestamp: Date.now(),
-      metrics,
-    });
-  });
+  fastify.get('/readyz', async () => ({ status: 'ready', timestamp: Date.now(), metrics: engine.getTotalMetrics() }));
 
-  // Metrics endpoint
   fastify.get('/api/metrics', async (_request, reply) => {
-    const metrics = engine.getTotalMetrics();
-    return reply.status(200).send({
+    const mem = process.memoryUsage();
+    reply.header('Cache-Control', 'no-store');
+    return {
       timestamp: Date.now(),
-      ...metrics,
-    });
+      connections: sockets.connectionCount,
+      rssMB: Math.round(mem.rss / 1048576),
+      heapUsedMB: Math.round(mem.heapUsed / 1048576),
+      ...engine.getTotalMetrics(),
+    };
   });
 
-  // Rooms list (admin)
-  fastify.get('/api/admin/rooms', async (_request, reply) => {
-    const rooms = engine.getRooms();
-    return reply.status(200).send({
-      rooms: rooms.map(room => ({
+  fastify.get('/api/rooms', async (_request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    return {
+      rooms: engine.getRooms().map((room) => ({
         id: room.id,
         createdAt: room.createdAt,
-        snakeCount: room.snakes.size,
-        humanCount: room.getHumanCount(),
-        botCount: room.bots.size,
-        foodCount: room.food.size,
-        isActive: room.isActive(),
+        humans: room.humanCount(),
+        bots: room.botCount(),
+        food: room.food.size,
       })),
-    });
+    };
   });
-
-  logger.info('REST routes registered');
 }

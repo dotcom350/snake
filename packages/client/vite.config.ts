@@ -1,30 +1,26 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
+import { fileURLToPath } from 'url';
+
+const root = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-      },
-      '/ws': {
-        target: 'ws://localhost:3000',
-        ws: true,
+  build: {
+    outDir: 'dist',
+    target: 'es2020',
+    sourcemap: false,
+    modulePreload: { polyfill: false },
+    rollupOptions: {
+      input: {
+        main: `${root}index.html`,
+        es: `${root}es/index.html`,
       },
     },
   },
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-  },
-  resolve: {
-    alias: {
-      '@shared': path.resolve(__dirname, '../shared/src'),
-      '@client': path.resolve(__dirname, 'src'),
+  server: {
+    port: 5173,
+    proxy: {
+      '/ws': { target: 'ws://localhost:3000', ws: true },
+      '/api': 'http://localhost:3000',
     },
   },
 });

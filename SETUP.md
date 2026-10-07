@@ -62,7 +62,7 @@ npm run build
 This builds:
 - `packages/shared` → types, schemas, codecs
 - `packages/server` → Node.js/Fastify application
-- `packages/client` → React + Vite frontend
+- `packages/client` → Vite frontend: static landing pages + lazily loaded Canvas game
 
 ### 6. Run Tests
 

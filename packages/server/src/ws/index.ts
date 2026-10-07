@@ -1,212 +1,262 @@
-import type { FastifyInstance } from 'fastify';
-import WebSocket, { WebSocketServer as WSServer } from 'ws';
-import http from 'http';
-import type { GameState as GameStateType } from '@snake/shared';
-import { InputIntentSchema, JoinRoomSchema, BinaryCodec } from '@snake/shared';
-import { GameEngine } from '../game/engine.js';
+import type { IncomingMessage, Server } from 'http';
+import type { Duplex } from 'stream';
+import { WebSocketServer, type WebSocket, type RawData } from 'ws';
+import {
+  JoinMessageSchema,
+  encodeState,
+  isValidNickname,
+  normalizeNickname,
+  type EncodableFood,
+  type EncodableSnake,
+  type ErrorCode,
+  type MetaPlayer,
+  type ServerMessage,
+} from '@snake/shared';
+import type { GameEngine, Room, Snake } from '../game/engine.js';
 import { createChildLogger } from '../logger.js';
 import { config } from '../config.js';
 
 const logger = createChildLogger('ws');
 
-interface ClientConnection {
+const MAX_BUFFERED_BYTES = 256 * 1024;
+const MIN_INPUT_INTERVAL_MS = 30;
+const META_INTERVAL_MS = 1000;
+const HEARTBEAT_MS = 30_000;
+
+interface Client {
   socket: WebSocket;
+  room: Room | null;
+  snakeId: number;
   sessionId: string;
-  snakeId?: string;
-  roomId?: string;
-  nickname?: string;
-  lastInputTime: number;
+  nickname: string;
+  lastInputAt: number;
+  lastMetaAt: number;
+  viewX: number;
+  viewY: number;
+  alive: boolean;
 }
 
-export class WebSocketServer {
-  private engine: GameEngine;
-  private clients: Map<string, ClientConnection> = new Map();
-  private broadcastInterval: NodeJS.Timeout | null = null;
-  private wsServer: WSServer | null = null;
+export class GameSocketServer {
+  private readonly wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: 512,
+    perMessageDeflate: false,
+    clientTracking: false,
+  });
+  private readonly clients = new Set<Client>();
+  private readonly bySnake = new Map<string, Client>();
+  private heartbeat: ReturnType<typeof setInterval> | null = null;
+  private readonly viewRadius = config.resourceConfig.profile === 'low' ? 1000 : 1300;
 
-  constructor(engine: GameEngine) {
-    this.engine = engine;
+  constructor(private readonly engine: GameEngine) {
+    engine.onTick = (rooms) => this.broadcast(rooms);
   }
 
-  register(fastify: FastifyInstance): void {
-    // WebSocket will be attached to the HTTP server
-    // after Fastify listens
-    fastify.addHook('onListen', () => {
-      const server = fastify.server as http.Server;
-      this.wsServer = new WSServer({ server, path: config.env.WS_PATH });
-
-      this.wsServer.on('connection', (socket) => {
-        this.handleConnection(socket);
-      });
+  attach(server: Server): void {
+    server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+      const path = (req.url ?? '').split('?')[0];
+      if (path !== config.env.WS_PATH) {
+        socket.destroy();
+        return;
+      }
+      if (this.clients.size >= config.resourceConfig.connectionLimit) {
+        socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');
+        return;
+      }
+      this.wss.handleUpgrade(req, socket, head, (ws) => this.onConnection(ws));
     });
-  }
 
-  start(): void {
-    if (this.broadcastInterval) return;
-
-    const broadcastInterval = Math.ceil(1000 / (config.resourceConfig.tickHz * 2));
-    this.broadcastInterval = setInterval(() => {
-      this.broadcastGameState();
-    }, broadcastInterval);
-
-    logger.info({ interval: broadcastInterval }, 'WebSocket broadcast started');
+    this.heartbeat = setInterval(() => {
+      for (const c of this.clients) {
+        if (!c.alive) {
+          c.socket.terminate();
+          continue;
+        }
+        c.alive = false;
+        c.socket.ping();
+      }
+    }, HEARTBEAT_MS);
   }
 
   stop(): void {
-    if (this.broadcastInterval) {
-      clearInterval(this.broadcastInterval);
-      this.broadcastInterval = null;
-    }
-    if (this.wsServer) {
-      this.wsServer.close();
-    }
+    if (this.heartbeat) clearInterval(this.heartbeat);
+    for (const c of this.clients) c.socket.close(1001, 'Server shutting down');
+    this.wss.close();
   }
 
-  private handleConnection(socket: WebSocket): void {
-    const clientId = Math.random().toString(36).substring(2, 15);
-    const sessionId = Math.random().toString(36).substring(2, 15);
-    const connection: ClientConnection = {
+  get connectionCount(): number {
+    return this.clients.size;
+  }
+
+  private onConnection(socket: WebSocket): void {
+    const client: Client = {
       socket,
-      sessionId,
-      lastInputTime: Date.now(),
+      room: null,
+      snakeId: 0,
+      sessionId: '',
+      nickname: '',
+      lastInputAt: 0,
+      lastMetaAt: 0,
+      viewX: 0,
+      viewY: 0,
+      alive: true,
     };
+    this.clients.add(client);
 
-    this.clients.set(clientId, connection);
-
-    logger.info({ clientId, sessionId }, 'Client connected');
-
-    socket.on('message', (data: any) => {
+    socket.on('pong', () => {
+      client.alive = true;
+    });
+    socket.on('message', (data: RawData, isBinary: boolean) => {
+      if (isBinary) return;
       try {
-        this.handleMessage(clientId, connection, data);
+        this.onMessage(client, data.toString());
       } catch (err) {
-        logger.error({ err, clientId }, 'Error handling message');
+        logger.debug({ err }, 'Bad message');
       }
     });
-
-    socket.on('close', () => {
-      this.handleDisconnect(clientId, connection);
-    });
-
-    socket.on('error', (err: Error) => {
-      logger.error({ err, clientId }, 'WebSocket error');
-    });
+    socket.on('close', () => this.onClose(client));
+    socket.on('error', (err) => logger.debug({ err }, 'Socket error'));
   }
 
-  private handleMessage(clientId: string, connection: ClientConnection, data: any): void {
-    if (data instanceof ArrayBuffer) {
-      // Binary codec for input - future optimization
+  private send(client: Client, msg: ServerMessage): void {
+    if (client.socket.readyState === 1) client.socket.send(JSON.stringify(msg));
+  }
+
+  private sendError(client: Client, code: ErrorCode): void {
+    this.send(client, { type: 'error', code });
+  }
+
+  private onMessage(client: Client, raw: string): void {
+    const msg = JSON.parse(raw) as { type?: unknown; a?: unknown; b?: unknown };
+
+    if (msg.type === 'input') {
+      if (!client.room || !client.snakeId) return;
+      const now = Date.now();
+      if (now - client.lastInputAt < MIN_INPUT_INTERVAL_MS) return;
+      if (typeof msg.a !== 'number' || !Number.isFinite(msg.a) || Math.abs(msg.a) > 10) return;
+      if (typeof msg.b !== 'boolean') return;
+      client.lastInputAt = now;
+      client.room.setInput(client.snakeId, msg.a, msg.b);
       return;
     }
 
-    const message = JSON.parse(data.toString());
-
-    if (message.type === 'join') {
-      this.handleJoin(clientId, connection, message);
-    } else if (message.type === 'input') {
-      this.handleInput(clientId, connection, message);
-    }
+    if (msg.type === 'join') this.onJoin(client, msg);
   }
 
-  private handleJoin(
-    clientId: string,
-    connection: ClientConnection,
-    message: any
-  ): void {
-    try {
-      const parsed = JoinRoomSchema.parse(message.payload);
-      const room = this.engine.findOrCreateRoom();
+  private onJoin(client: Client, raw: unknown): void {
+    const parsed = JoinMessageSchema.safeParse(raw);
+    if (!parsed.success) return this.sendError(client, 'INVALID_INPUT');
 
-      const snake = room.addPlayer(connection.sessionId, parsed.nickname);
-      connection.snakeId = snake.id;
-      connection.roomId = room.id;
-      connection.nickname = parsed.nickname;
+    if (client.room && client.snakeId && client.room.snakes.has(client.snakeId)) return;
 
-      connection.socket.send(
-        JSON.stringify({
-          type: 'joined',
-          snakeId: snake.id,
-          roomId: room.id,
-          sessionId: connection.sessionId,
-        })
-      );
+    const nickname = normalizeNickname(parsed.data.nickname);
+    if (!isValidNickname(nickname)) return this.sendError(client, 'NICKNAME_INVALID');
 
-      logger.info(
-        { clientId, nickname: parsed.nickname, roomId: room.id },
-        'Player joined'
-      );
-    } catch (err) {
-      connection.socket.send(
-        JSON.stringify({
-          type: 'error',
-          code: 'INVALID_INPUT',
-          message: 'Invalid join payload',
-        })
-      );
-    }
+    let room = client.room && this.engine.getRoom(client.room.id) ? client.room : null;
+    room ??= this.engine.findRoom();
+    if (!room) return this.sendError(client, 'SERVER_FULL');
+
+    const snake = room.addPlayer(parsed.data.sessionId, nickname);
+    client.room = room;
+    client.snakeId = snake.id;
+    client.sessionId = parsed.data.sessionId;
+    client.nickname = nickname;
+    client.lastMetaAt = 0;
+    this.bySnake.set(`${room.id}:${snake.id}`, client);
+
+    this.send(client, {
+      type: 'joined',
+      id: snake.id,
+      arena: { w: room.width, h: room.height },
+      tickHz: config.resourceConfig.tickHz,
+    });
+    logger.info({ roomId: room.id, humans: room.humanCount() }, 'Player joined');
   }
 
-  private handleInput(
-    clientId: string,
-    connection: ClientConnection,
-    message: any
-  ): void {
-    if (!connection.snakeId || !connection.roomId) return;
+  private onClose(client: Client): void {
+    if (client.room && client.snakeId) {
+      client.room.removeSnake(client.snakeId);
+      this.bySnake.delete(`${client.room.id}:${client.snakeId}`);
+    }
+    this.clients.delete(client);
+  }
 
-    // Rate limit: max 20 inputs per second per client
+  private broadcast(rooms: Room[]): void {
+    for (const room of rooms) {
+      for (const d of room.takeDeaths()) {
+        if (d.isBot) continue;
+        const key = `${room.id}:${d.snakeId}`;
+        const client = this.bySnake.get(key);
+        this.bySnake.delete(key);
+        if (!client) continue;
+        client.snakeId = 0;
+        this.send(client, { type: 'died', score: d.score, killer: d.killer, reason: d.reason });
+      }
+    }
+
     const now = Date.now();
-    if (now - connection.lastInputTime < 50) return;
-    connection.lastInputTime = now;
+    const roomCache = new Map<Room, { list: Snake[]; boxes: Float64Array; players: MetaPlayer[]; ranked: Snake[] }>();
 
-    try {
-      const input = InputIntentSchema.parse(message.payload);
-      const room = this.engine.getRoom(connection.roomId);
-      if (room) {
-        room.updateInput(connection.snakeId, input.direction, input.boost);
+    for (const client of this.clients) {
+      const room = client.room;
+      if (!room || client.socket.readyState !== 1) continue;
+      if (client.socket.bufferedAmount > MAX_BUFFERED_BYTES) continue;
+
+      let cache = roomCache.get(room);
+      if (!cache) {
+        const list = Array.from(room.snakes.values());
+        const boxes = new Float64Array(list.length * 4);
+        list.forEach((s, i) => {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const p of s.points) {
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
+          }
+          boxes.set([minX, minY, maxX, maxY], i * 4);
+        });
+        cache = { list, boxes, players: list.map((s) => [s.id, s.nickname] as MetaPlayer), ranked: [] };
+        roomCache.set(room, cache);
       }
-    } catch (err) {
-      logger.debug({ clientId, err }, 'Invalid input');
-    }
-  }
 
-  private handleDisconnect(clientId: string, connection: ClientConnection): void {
-    if (connection.snakeId && connection.roomId) {
-      const room = this.engine.getRoom(connection.roomId);
-      if (room) {
-        room.removePlayer(connection.snakeId);
-        logger.info(
-          { clientId, nickname: connection.nickname, roomId: connection.roomId },
-          'Player left'
-        );
+      const self = client.snakeId ? room.snakes.get(client.snakeId) : undefined;
+      if (self) {
+        client.viewX = self.points[0].x;
+        client.viewY = self.points[0].y;
       }
-    }
+      const reach = this.viewRadius + (self ? self.mass * 0.5 : 0);
+      const minX = client.viewX - reach, maxX = client.viewX + reach;
+      const minY = client.viewY - reach, maxY = client.viewY + reach;
 
-    this.clients.delete(clientId);
-  }
-
-  private broadcastGameState(): void {
-    const roomStates = new Map<string, GameStateType>();
-
-    for (const room of this.engine.getRooms()) {
-      roomStates.set(room.id, room.getGameState());
-    }
-
-    for (const [clientId, connection] of this.clients) {
-      if (!connection.roomId || connection.socket.readyState !== 1) continue;
-
-      const state = roomStates.get(connection.roomId);
-      if (!state) continue;
+      const visible: EncodableSnake[] = [];
+      for (let i = 0; i < cache.list.length; i++) {
+        const b = i * 4;
+        if (cache.boxes[b + 2] < minX || cache.boxes[b] > maxX || cache.boxes[b + 3] < minY || cache.boxes[b + 1] > maxY) continue;
+        visible.push(cache.list[i]);
+      }
+      const food: EncodableFood[] = [];
+      room.forEachFoodInRect(minX, minY, maxX, maxY, (f) => {
+        food.push(f);
+      });
 
       try {
-        // Send binary-encoded state
-        const encoded = BinaryCodec.encodeGameState(
-          state.tick,
-          state.snakes,
-          state.food
-        );
-
-        connection.socket.send(encoded);
+        client.socket.send(encodeState(room.tickCount, self ? self.id : 0, visible, food));
       } catch (err) {
-        logger.error({ clientId, err }, 'Error sending state');
+        logger.debug({ err }, 'Send failed');
+      }
+
+      if (now - client.lastMetaAt >= META_INTERVAL_MS) {
+        client.lastMetaAt = now;
+        if (cache.ranked.length === 0) cache.ranked = room.leaderboard();
+        const rank = self ? cache.ranked.indexOf(self) + 1 : 0;
+        this.send(client, {
+          type: 'meta',
+          players: cache.players,
+          top: cache.ranked.slice(0, 10).map((s) => [s.nickname, Math.floor(s.mass), s === self]),
+          rank,
+          count: cache.ranked.length,
+        });
       }
     }
   }

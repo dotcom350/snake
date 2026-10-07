@@ -2,26 +2,215 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Snake Arena – Free Multiplayer Snake .io Game Online</title>
+    <meta name="description" content="Play Snake Arena free in your browser: a fast multiplayer snake .io game. Eat glowing orbs, grow longer and outsmart other snakes. No download, works on mobile." />
+    <link rel="canonical" href="%SITE_URL%/" />
+    <link rel="alternate" hreflang="en" href="%SITE_URL%/" />
+    <link rel="alternate" hreflang="es" href="%SITE_URL%/es/" />
+    <link rel="alternate" hreflang="x-default" href="%SITE_URL%/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0b1020" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#1a1a2e" />
-    <title>Snake Arena</title>
-    <style>
-      html, body, #root {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
+    <meta name="apple-mobile-web-app-title" content="Snake Arena" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Snake Arena" />
+    <meta property="og:title" content="Snake Arena – Free Multiplayer Snake .io Game" />
+    <meta property="og:description" content="Eat glowing orbs, grow longer and outsmart other snakes. Play free in your browser, on phone or computer." />
+    <meta property="og:url" content="%SITE_URL%/" />
+    <meta property="og:image" content="%SITE_URL%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Snake Arena – multiplayer snake game" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="es_ES" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Snake Arena – Free Multiplayer Snake .io Game" />
+    <meta name="twitter:description" content="Eat glowing orbs, grow longer and outsmart other snakes. Free, no download." />
+    <meta name="twitter:image" content="%SITE_URL%/og-image.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "%SITE_URL%/#website",
+            "url": "%SITE_URL%/",
+            "name": "Snake Arena",
+            "inLanguage": ["en", "es"]
+          },
+          {
+            "@type": "VideoGame",
+            "name": "Snake Arena",
+            "url": "%SITE_URL%/",
+            "image": "%SITE_URL%/og-image.png",
+            "description": "Free multiplayer snake .io game you play in the browser. Eat glowing orbs, grow longer and outsmart other snakes.",
+            "genre": ["Arcade", "Multiplayer", "io game"],
+            "gamePlatform": ["Web browser", "Mobile web browser"],
+            "applicationCategory": "Game",
+            "operatingSystem": "Any",
+            "playMode": "MultiPlayer",
+            "inLanguage": "en",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              { "@type": "Question", "name": "Is Snake Arena free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Snake Arena is completely free to play in your web browser." } },
+              { "@type": "Question", "name": "Do I need to download anything?", "acceptedAnswer": { "@type": "Answer", "text": "No. The game runs directly in the browser on phones, tablets and computers. There is nothing to install and no account to create." } },
+              { "@type": "Question", "name": "Can I play on my phone?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. On iPhone and Android, drag your finger anywhere on the screen to steer and hold the lightning button to boost." } },
+              { "@type": "Question", "name": "How do I boost?", "acceptedAnswer": { "@type": "Answer", "text": "On a computer, hold the left mouse button or the Space bar. On mobile, hold the lightning button. Boosting makes you faster but burns some of your length." } },
+              { "@type": "Question", "name": "What happens when my snake dies?", "acceptedAnswer": { "@type": "Answer", "text": "Your snake turns into glowing orbs that other players can eat. Press Play again to respawn instantly." } }
+            ]
+          }
+        ]
       }
-      body {
-        background: #1a1a2e;
-      }
-    </style>
+    </script>
+
+    <script type="module" src="/src/landing.ts"></script>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div class="page">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Snake Arena home">
+          <img src="/favicon.svg" width="32" height="32" alt="" />
+          <span>Snake Arena</span>
+        </a>
+        <nav class="lang" aria-label="Language">
+          <a href="/" hreflang="en" lang="en" aria-current="page" data-lang="en">EN</a>
+          <a href="/es/" hreflang="es" lang="es" data-lang="es">ES</a>
+        </nav>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="title">
+          <canvas class="hero-bg" aria-hidden="true"></canvas>
+          <div class="hero-inner">
+            <h1 id="title">Snake Arena <span>Free multiplayer snake .io game</span></h1>
+            <p class="lead">Slither, eat glowing orbs and grow into the longest snake in the arena. Play instantly in your browser, on your phone or computer.</p>
+
+            <form class="play-card" id="play-form" novalidate
+              data-err-nickname="Use 1–16 letters, numbers, spaces, _ - or ."
+              data-err-connect="Can't reach the game server. Check your connection and try again."
+              data-err-full="The server is full right now. Try again in a moment.">
+              <label for="nickname">Your nickname</label>
+              <div class="play-row">
+                <input id="nickname" name="nickname" type="text" maxlength="16" autocomplete="nickname"
+                  autocapitalize="off" spellcheck="false" enterkeyhint="go" placeholder="Enter a nickname" required />
+                <button type="submit" class="play-btn">
+                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                  <span>Play now</span>
+                </button>
+              </div>
+              <p class="form-error" id="form-error" role="alert" hidden></p>
+              <ul class="badges">
+                <li>100% free</li>
+                <li>No sign-up</li>
+                <li>Mobile &amp; desktop</li>
+              </ul>
+            </form>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="how">
+          <h2 id="how">How to play</h2>
+          <ol class="steps">
+            <li class="card">
+              <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="3" opacity=".35"/><circle cx="31" cy="17" r="7" fill="currentColor"/></svg>
+              <h3>Steer</h3>
+              <p>Move your mouse, or drag anywhere on the screen with your finger. Your snake follows the direction you point.</p>
+            </li>
+            <li class="card">
+              <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><circle cx="12" cy="30" r="5" fill="currentColor"/><circle cx="26" cy="18" r="4" fill="currentColor" opacity=".7"/><circle cx="38" cy="30" r="6" fill="currentColor" opacity=".5"/></svg>
+              <h3>Eat &amp; grow</h3>
+              <p>Collect glowing orbs to get longer. The longer you are, the higher you climb on the leaderboard.</p>
+            </li>
+            <li class="card">
+              <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><path d="M27 4 10 27h12l-3 17 19-25H26z" fill="currentColor"/></svg>
+              <h3>Boost &amp; trap</h3>
+              <p>Hold the mouse button, Space or the ⚡ button to boost. Make other snakes crash into your body and eat what they leave behind.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section class="section" aria-labelledby="why">
+          <h2 id="why">Why play Snake Arena?</h2>
+          <div class="features">
+            <article class="card">
+              <h3>Real-time multiplayer</h3>
+              <p>Every snake moves live on our server. Jump into an arena with other players and bots in one click.</p>
+            </article>
+            <article class="card">
+              <h3>Made for mobile</h3>
+              <p>A touch joystick and a big boost button make it easy to play one-handed on phones and tablets.</p>
+            </article>
+            <article class="card">
+              <h3>Instant and lightweight</h3>
+              <p>The page loads in seconds, even on slow connections. No app, no plugins, no account.</p>
+            </article>
+            <article class="card">
+              <h3>Fair by design</h3>
+              <p>The server decides every move and collision, so nobody can cheat their way to the top.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="tips">
+          <h2 id="tips">Tips to become the longest snake</h2>
+          <ul class="tips">
+            <li><strong>Circle smaller snakes.</strong> Wrap your body around them until they have nowhere to go.</li>
+            <li><strong>Boost only when it pays.</strong> It costs length, so use it to escape or to cut someone off.</li>
+            <li><strong>Watch the red wall.</strong> Touching the edge of the arena ends your run.</li>
+            <li><strong>Follow the fights.</strong> A big snake that dies leaves a trail of orbs. Be the first to arrive.</li>
+            <li><strong>Head-on, size wins.</strong> When two heads collide, the bigger snake survives.</li>
+          </ul>
+        </section>
+
+        <section class="section" aria-labelledby="faq">
+          <h2 id="faq">Frequently asked questions</h2>
+          <div class="faq">
+            <details>
+              <summary>Is Snake Arena free?</summary>
+              <p>Yes. Snake Arena is completely free to play in your web browser.</p>
+            </details>
+            <details>
+              <summary>Do I need to download anything?</summary>
+              <p>No. The game runs directly in the browser on phones, tablets and computers. There is nothing to install and no account to create.</p>
+            </details>
+            <details>
+              <summary>Can I play on my phone?</summary>
+              <p>Yes. On iPhone and Android, drag your finger anywhere on the screen to steer and hold the ⚡ button to boost.</p>
+            </details>
+            <details>
+              <summary>How do I boost?</summary>
+              <p>On a computer, hold the left mouse button or the Space bar. On mobile, hold the ⚡ button. Boosting makes you faster but burns some of your length.</p>
+            </details>
+            <details>
+              <summary>What happens when my snake dies?</summary>
+              <p>Your snake turns into glowing orbs that other players can eat. Press Play again to respawn instantly.</p>
+            </details>
+            <details>
+              <summary>Is it like other snake .io games?</summary>
+              <p>Yes. If you enjoy snake .io games like slither.io, you will feel right at home: steer, eat, grow and trap other snakes.</p>
+            </details>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>Snake Arena · Free multiplayer snake game</p>
+        <p><a href="/es/" hreflang="es" lang="es" data-lang="es">Jugar en español</a></p>
+      </footer>
+    </div>
   </body>
 </html>

@@ -3,4 +3,4 @@ export * from './schemas.js';
 export * from './error-codes.js';
 export * from './resource-profiles.js';
 export * from './i18n-types.js';
-export * from './binary-codec.js';
+export * from './protocol.js';

@@ -5,7 +5,7 @@ import type { ResourceConfig, ResourceProfile } from '@snake/shared';
 
 const EnvSchema = z.object({
   // Database
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.url(),
 
   // Application
   NODE_ENV: z
@@ -29,7 +29,7 @@ const EnvSchema = z.object({
   TICK_HZ: z.coerce.number().int().optional(),
   ROOM_CAPACITY: z.coerce.number().int().optional(),
   MAX_ROOMS: z.coerce.number().int().optional(),
-  BOT_ENABLE: z.enum(['true', 'false']).transform(v => v === 'true').default('true'),
+  BOT_ENABLE: z.enum(['true', 'false']).transform(v => v === 'true').default(true),
   BOT_MIN_PER_ROOM: z.coerce.number().int().optional(),
   ARENA_WIDTH: z.coerce.number().int().optional(),
   ARENA_HEIGHT: z.coerce.number().int().optional(),
@@ -43,13 +43,13 @@ const EnvSchema = z.object({
   REVIVAL_CLAIM_EXPIRY: z.coerce.number().int().optional(),
 
   // Admin
-  ADMIN_BOOTSTRAP_EMAIL: z.string().email().optional(),
+  ADMIN_BOOTSTRAP_EMAIL: z.email().optional(),
   ADMIN_BOOTSTRAP_PASSWORD: z.string().min(8).optional(),
   ADMIN_RATE_LIMIT_ATTEMPTS: z.coerce.number().int().default(5),
   ADMIN_RATE_LIMIT_WINDOW: z.coerce.number().int().default(300),
 
   // Advertising
-  AD_ENABLE: z.enum(['true', 'false']).transform(v => v === 'true').default('false'),
+  AD_ENABLE: z.enum(['true', 'false']).transform(v => v === 'true').default(false),
   AD_MONETAG_SCRIPT_URL: z.string().optional(),
   AD_REWARD_ZONE_ID: z.string().optional(),
   AD_FREQUENCY_CAP_DAILY: z.coerce.number().int().default(3),
@@ -64,8 +64,9 @@ const EnvSchema = z.object({
   EVENT_RETENTION_DAYS: z.coerce.number().int().default(30),
 
   // SSL/TLS
-  SSL_ENABLED: z.enum(['true', 'false']).transform(v => v === 'true').default('false'),
-  CORS_ORIGINS: z.string().optional(),
+  SSL_ENABLED: z.enum(['true', 'false']).transform(v => v === 'true').default(false),
+  // Public URL used for canonical/hreflang/sitemap links, e.g. https://snake.example.com
+  SITE_URL: z.union([z.url(), z.literal('')]).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -112,14 +113,6 @@ export class Config {
     return this.env.NODE_ENV === 'production';
   }
 
-  get corsOrigins(): string[] {
-    if (!this.env.CORS_ORIGINS) {
-      return this.isDev
-        ? ['http://localhost:5173', 'http://localhost:3000']
-        : [];
-    }
-    return this.env.CORS_ORIGINS.split(',').map(o => o.trim());
-  }
 }
 
 export const config = Config.getInstance();

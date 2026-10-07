@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                       CLIENT (React + Canvas)               │
+│                       CLIENT (TS + Canvas)                  │
 │  ┌────────────────┐  ┌──────────────┐  ┌────────────────┐  │
 │  │  Start Screen  │  │  Game Canvas │  │   HUD/Score    │  │
 │  │   (Nickname)   │  │  (WebSocket) │  │  Leaderboard   │  │
@@ -231,7 +231,7 @@
 - Renders arena, snakes, food
 - Interpolation between ticks
 - FPS counter (dev mode)
-- Minimal React interaction (pure Canvas)
+- No UI framework: plain TypeScript + Canvas
 
 **HUD** (`components/HUD.tsx`):
 - Score display
@@ -243,7 +243,7 @@
 - WebSocket management
 - Automatic reconnection (exponential backoff)
 - Binary state decoding
-- Listener pattern (React hooks can subscribe)
+- Listener pattern
 
 **i18n** (`i18n/index.ts`):
 - `en.ts` and `es.ts` with type-safe keys

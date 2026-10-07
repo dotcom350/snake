@@ -2,29 +2,20 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": [],
     "resolveJsonModule": true,
-    "allowJs": false,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
     "declaration": true,
-    "declarationMap": true,
     "sourceMap": true,
-    "noImplicitAny": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
-    "paths": {
-      "@shared/*": ["packages/shared/src/*"],
-      "@server/*": ["packages/server/src/*"],
-      "@client/*": ["packages/client/src/*"]
-    }
-  },
-  "include": ["packages"],
-  "exclude": ["node_modules", "dist", "build", ".next"]
+    "noFallthroughCasesInSwitch": true
+  }
 }

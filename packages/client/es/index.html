@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Snake Arena – Juego de Serpientes Multijugador .io Gratis</title>
+    <meta name="description" content="Juega gratis a Snake Arena en tu navegador: un juego de serpientes multijugador .io. Come orbes brillantes, crece y supera a los demás. Sin descargas y funciona en el móvil." />
+    <link rel="canonical" href="%SITE_URL%/es/" />
+    <link rel="alternate" hreflang="en" href="%SITE_URL%/" />
+    <link rel="alternate" hreflang="es" href="%SITE_URL%/es/" />
+    <link rel="alternate" hreflang="x-default" href="%SITE_URL%/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0b1020" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Snake Arena" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Snake Arena" />
+    <meta property="og:title" content="Snake Arena – Juego de Serpientes Multijugador .io Gratis" />
+    <meta property="og:description" content="Come orbes brillantes, crece y supera a las demás serpientes. Juega gratis en el navegador, en el móvil o en el ordenador." />
+    <meta property="og:url" content="%SITE_URL%/es/" />
+    <meta property="og:image" content="%SITE_URL%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Snake Arena – juego de serpientes multijugador" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Snake Arena – Juego de Serpientes Multijugador .io Gratis" />
+    <meta name="twitter:description" content="Come orbes brillantes, crece y supera a las demás serpientes. Gratis y sin descargas." />
+    <meta name="twitter:image" content="%SITE_URL%/og-image.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "%SITE_URL%/#website",
+            "url": "%SITE_URL%/",
+            "name": "Snake Arena",
+            "inLanguage": ["en", "es"]
+          },
+          {
+            "@type": "VideoGame",
+            "name": "Snake Arena",
+            "url": "%SITE_URL%/es/",
+            "image": "%SITE_URL%/og-image.png",
+            "description": "Juego de serpientes multijugador .io gratis para el navegador. Come orbes brillantes, crece y supera a las demás serpientes.",
+            "genre": ["Arcade", "Multijugador", "juego io"],
+            "gamePlatform": ["Navegador web", "Navegador móvil"],
+            "applicationCategory": "Game",
+            "operatingSystem": "Any",
+            "playMode": "MultiPlayer",
+            "inLanguage": "es",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              { "@type": "Question", "name": "¿Snake Arena es gratis?", "acceptedAnswer": { "@type": "Answer", "text": "Sí. Snake Arena es totalmente gratis y se juega en el navegador." } },
+              { "@type": "Question", "name": "¿Tengo que descargar algo?", "acceptedAnswer": { "@type": "Answer", "text": "No. El juego funciona directamente en el navegador del móvil, la tablet o el ordenador. No hay que instalar nada ni crear una cuenta." } },
+              { "@type": "Question", "name": "¿Puedo jugar en el móvil?", "acceptedAnswer": { "@type": "Answer", "text": "Sí. En iPhone y Android, arrastra el dedo por la pantalla para dirigir la serpiente y mantén pulsado el botón del rayo para acelerar." } },
+              { "@type": "Question", "name": "¿Cómo se acelera?", "acceptedAnswer": { "@type": "Answer", "text": "En el ordenador, mantén pulsado el botón izquierdo del ratón o la barra espaciadora. En el móvil, mantén pulsado el botón del rayo. Acelerar te hace más rápido pero gasta parte de tu longitud." } },
+              { "@type": "Question", "name": "¿Qué pasa cuando mi serpiente muere?", "acceptedAnswer": { "@type": "Answer", "text": "Tu serpiente se convierte en orbes brillantes que otros jugadores pueden comer. Pulsa Jugar otra vez para reaparecer al instante." } }
+            ]
+          }
+        ]
+      }
+    </script>
+
+    <script type="module" src="/src/landing.ts"></script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <a class="brand" href="/es/" aria-label="Snake Arena inicio">
+          <img src="/favicon.svg" width="32" height="32" alt="" />
+          <span>Snake Arena</span>
+        </a>
+        <nav class="lang" aria-label="Idioma">
+          <a href="/" hreflang="en" lang="en" data-lang="en">EN</a>
+          <a href="/es/" hreflang="es" lang="es" aria-current="page" data-lang="es">ES</a>
+        </nav>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="title">
+          <canvas class="hero-bg" aria-hidden="true"></canvas>
+          <div class="hero-inner">
+            <h1 id="title">Snake Arena <span>Juego de serpientes multijugador .io gratis</span></h1>
+            <p class="lead">Deslízate, come orbes brillantes y conviértete en la serpiente más larga de la arena. Juega al instante en el navegador, desde el móvil o el ordenador.</p>
+
+            <form class="play-card" id="play-form" novalidate
+              data-err-nickname="Usa de 1 a 16 letras, números, espacios, _ - o ."
+              data-err-connect="No se puede conectar con el servidor del juego. Revisa tu conexión e inténtalo de nuevo."
+              data-err-full="El servidor está lleno ahora mismo. Inténtalo de nuevo en un momento.">
+              <label for="nickname">Tu nombre</label>
+              <div class="play-row">
+                <input id="nickname" name="nickname" type="text" maxlength="16" autocomplete="nickname"
+                  autocapitalize="off" spellcheck="false" enterkeyhint="go" placeholder="Escribe un nombre" required />
+                <button type="submit" class="play-btn">
+                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                  <span>Jugar ahora</span>
+                </button>
+              </div>
+              <p class="form-error" id="form-error" role="alert" hidden></p>
+              <ul class="badges">
+                <li>100% gratis</li>
+                <li>Sin registro</li>
+                <li>Móvil y ordenador</li>
+              </ul>
+            </form>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="how">
+          <h2 id="how">Cómo se juega</h2>
+          <ol class="steps">
+            <li class="card">
+              <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="3" opacity=".35"/><circle cx="31" cy="17" r="7" fill="currentColor"/></svg>
+              <h3>Dirige</h3>
+              <p>Mueve el ratón o arrastra el dedo por cualquier parte de la pantalla. Tu serpiente sigue la dirección que marcas.</p>
+            </li>
+            <li class="card">
+              <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><circle cx="12" cy="30" r="5" fill="currentColor"/><circle cx="26" cy="18" r="4" fill="currentColor" opacity=".7"/><circle cx="38" cy="30" r="6" fill="currentColor" opacity=".5"/></svg>
+              <h3>Come y crece</h3>
+              <p>Recoge orbes brillantes para hacerte más larga. Cuanto más larga, más subes en la clasificación.</p>
+            </li>
+            <li class="card">
+              <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><path d="M27 4 10 27h12l-3 17 19-25H26z" fill="currentColor"/></svg>
+              <h3>Acelera y encierra</h3>
+              <p>Mantén pulsado el ratón, el espacio o el botón ⚡ para acelerar. Haz que otras serpientes choquen contra tu cuerpo y cómete lo que dejan.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section class="section" aria-labelledby="why">
+          <h2 id="why">¿Por qué jugar a Snake Arena?</h2>
+          <div class="features">
+            <article class="card">
+              <h3>Multijugador en tiempo real</h3>
+              <p>Todas las serpientes se mueven en directo en nuestro servidor. Entra en una arena con otros jugadores y bots con un solo clic.</p>
+            </article>
+            <article class="card">
+              <h3>Pensado para el móvil</h3>
+              <p>Un joystick táctil y un botón grande de aceleración para jugar con una mano en móviles y tablets.</p>
+            </article>
+            <article class="card">
+              <h3>Rápido y ligero</h3>
+              <p>La página carga en segundos, incluso con conexiones lentas. Sin apps, sin plugins y sin cuenta.</p>
+            </article>
+            <article class="card">
+              <h3>Juego limpio</h3>
+              <p>El servidor decide cada movimiento y cada choque, así que nadie puede hacer trampas para llegar arriba.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="tips">
+          <h2 id="tips">Consejos para ser la serpiente más larga</h2>
+          <ul class="tips">
+            <li><strong>Rodea a las más pequeñas.</strong> Envuélvelas con tu cuerpo hasta que no tengan salida.</li>
+            <li><strong>Acelera solo cuando compense.</strong> Cuesta longitud, úsalo para escapar o para cortar el paso.</li>
+            <li><strong>Cuidado con el muro rojo.</strong> Tocar el borde de la arena termina tu partida.</li>
+            <li><strong>Sigue las peleas.</strong> Una serpiente grande que muere deja un rastro de orbes. Llega la primera.</li>
+            <li><strong>De frente, gana la grande.</strong> Si dos cabezas chocan, sobrevive la serpiente más grande.</li>
+          </ul>
+        </section>
+
+        <section class="section" aria-labelledby="faq">
+          <h2 id="faq">Preguntas frecuentes</h2>
+          <div class="faq">
+            <details>
+              <summary>¿Snake Arena es gratis?</summary>
+              <p>Sí. Snake Arena es totalmente gratis y se juega en el navegador.</p>
+            </details>
+            <details>
+              <summary>¿Tengo que descargar algo?</summary>
+              <p>No. El juego funciona directamente en el navegador del móvil, la tablet o el ordenador. No hay que instalar nada ni crear una cuenta.</p>
+            </details>
+            <details>
+              <summary>¿Puedo jugar en el móvil?</summary>
+              <p>Sí. En iPhone y Android, arrastra el dedo por la pantalla para dirigir la serpiente y mantén pulsado el botón ⚡ para acelerar.</p>
+            </details>
+            <details>
+              <summary>¿Cómo se acelera?</summary>
+              <p>En el ordenador, mantén pulsado el botón izquierdo del ratón o la barra espaciadora. En el móvil, mantén pulsado el botón ⚡. Acelerar te hace más rápido pero gasta parte de tu longitud.</p>
+            </details>
+            <details>
+              <summary>¿Qué pasa cuando mi serpiente muere?</summary>
+              <p>Tu serpiente se convierte en orbes brillantes que otros jugadores pueden comer. Pulsa Jugar otra vez para reaparecer al instante.</p>
+            </details>
+            <details>
+              <summary>¿Se parece a otros juegos de serpientes .io?</summary>
+              <p>Sí. Si te gustan los juegos de serpientes .io como slither.io, te sentirás como en casa: dirige, come, crece y encierra a otras serpientes.</p>
+            </details>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>Snake Arena · Juego de serpientes multijugador gratis</p>
+        <p><a href="/" hreflang="en" lang="en" data-lang="en">Play in English</a></p>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,68 +1,34 @@
 import { describe, it, expect } from 'vitest';
 import {
-  InputIntentSchema,
-  JoinRoomSchema,
+  InputMessageSchema,
+  JoinMessageSchema,
   AdminLoginSchema,
   AdminConfigSchema,
 } from './schemas.js';
 
 describe('Schemas', () => {
-  describe('InputIntentSchema', () => {
-    it('should validate correct input', () => {
-      const input = {
-        direction: 1,
-        boost: false,
-        timestamp: Date.now(),
-      };
-      expect(() => InputIntentSchema.parse(input)).not.toThrow();
+  describe('InputMessageSchema', () => {
+    it('accepts a steering angle and boost flag', () => {
+      expect(() => InputMessageSchema.parse({ type: 'input', a: 1.2, b: false })).not.toThrow();
     });
 
-    it('should reject invalid direction', () => {
-      expect(() =>
-        InputIntentSchema.parse({
-          direction: 5,
-          boost: false,
-          timestamp: Date.now(),
-        })
-      ).toThrow();
-    });
-
-    it('should reject negative timestamp', () => {
-      expect(() =>
-        InputIntentSchema.parse({
-          direction: 1,
-          boost: false,
-          timestamp: -1,
-        })
-      ).toThrow();
+    it('rejects non-numeric or out-of-range angles', () => {
+      expect(() => InputMessageSchema.parse({ type: 'input', a: 'x', b: false })).toThrow();
+      expect(() => InputMessageSchema.parse({ type: 'input', a: 1e9, b: false })).toThrow();
+      expect(() => InputMessageSchema.parse({ type: 'input', a: Infinity, b: false })).toThrow();
     });
   });
 
-  describe('JoinRoomSchema', () => {
-    it('should validate correct join data', () => {
-      const join = {
-        nickname: 'Player123',
-        sessionId: '550e8400-e29b-41d4-a716-446655440000',
-      };
-      expect(() => JoinRoomSchema.parse(join)).not.toThrow();
+  describe('JoinMessageSchema', () => {
+    it('accepts a join with any safe session id (not only UUIDs)', () => {
+      expect(() =>
+        JoinMessageSchema.parse({ type: 'join', nickname: 'Player123', sessionId: 'a1b2c3d4e5f6a7b8' })
+      ).not.toThrow();
     });
 
-    it('should reject empty nickname', () => {
-      expect(() =>
-        JoinRoomSchema.parse({
-          nickname: '',
-          sessionId: '550e8400-e29b-41d4-a716-446655440000',
-        })
-      ).toThrow();
-    });
-
-    it('should reject nickname with invalid characters', () => {
-      expect(() =>
-        JoinRoomSchema.parse({
-          nickname: 'Player@#$',
-          sessionId: '550e8400-e29b-41d4-a716-446655440000',
-        })
-      ).toThrow();
+    it('rejects empty nickname and unsafe session ids', () => {
+      expect(() => JoinMessageSchema.parse({ type: 'join', nickname: '', sessionId: 'a1b2c3d4e5f6' })).toThrow();
+      expect(() => JoinMessageSchema.parse({ type: 'join', nickname: 'ok', sessionId: '<script>' })).toThrow();
     });
   });
 

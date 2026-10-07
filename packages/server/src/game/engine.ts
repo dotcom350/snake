@@ -1,86 +1,504 @@
-import { randomUUID as uuidv4 } from 'crypto';
-import type { Snake, Food, SnakeSegment } from '@snake/shared';
-import { SpatialGrid } from './spatial-grid.js';
+import { randomUUID } from 'crypto';
+import { SNAKE_COLORS, snakeRadius, foodRadius } from '@snake/shared';
+import { CellGrid, BodyGrid } from './spatial-grid.js';
 import { createChildLogger } from '../logger.js';
 import { config } from '../config.js';
 
 const logger = createChildLogger('game');
 
-const COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-  '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#52E5A6',
+const BASE_SPEED = 165;
+const BOOST_SPEED = 330;
+const TURN_RATE = 4.2;
+const START_MASS = 10;
+const MIN_BOOST_MASS = 14;
+const BOOST_COST = 7;
+const SPAWN_PROTECTION_MS = 2500;
+const POINT_SPACING_GUESS = 9;
+const BOT_NAMES = [
+  'Viper', 'Cobra', 'Mamba', 'Python', 'Boa', 'Kraken', 'Noodle', 'Slinky', 'Zigzag', 'Pixel',
+  'Nova', 'Blaze', 'Shadow', 'Neon', 'Turbo', 'Wiggles', 'Sssam', 'Medusa', 'Rattle', 'Comet',
 ];
 
-export class GameEngine {
-  private rooms: Map<string, Room> = new Map();
-  private tickRate: number;
-  private tickInterval: ReturnType<typeof setInterval> | null = null;
-  private lastTickTime: number = Date.now();
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface Snake {
+  id: number;
+  sessionId: string;
+  nickname: string;
+  isBot: boolean;
+  points: Point[];
+  seq: number;
+  angle: number;
+  targetAngle: number;
+  mass: number;
+  wantsBoost: boolean;
+  boosting: boolean;
+  boostDrop: number;
+  protectedUntil: number;
+  protected: boolean;
+  color: number;
+  kills: number;
+  bornAt: number;
+  thinkOffset: number;
+}
+
+export interface Food {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  color: number;
+}
+
+export interface DeathEvent {
+  snakeId: number;
+  isBot: boolean;
+  score: number;
+  killer: string | null;
+  reason: 'snake' | 'wall';
+}
+
+const TWO_PI = Math.PI * 2;
+
+function normAngle(a: number): number {
+  a = (a + Math.PI) % TWO_PI;
+  if (a < 0) a += TWO_PI;
+  return a - Math.PI;
+}
+
+function targetLength(mass: number): number {
+  return Math.min(40 + mass * 4, config.resourceConfig.maxSnakeLength * POINT_SPACING_GUESS);
+}
+
+export class Room {
+  readonly id = randomUUID();
+  readonly createdAt = Date.now();
+  readonly width = config.resourceConfig.arenaWidth;
+  readonly height = config.resourceConfig.arenaHeight;
+  lastHumanAt = Date.now();
+  tickCount = 0;
+  readonly snakes = new Map<number, Snake>();
+  readonly food = new Map<number, Food>();
+
+  private nextSnakeId = 1;
+  private nextFoodId = 1;
+  private readonly foodGrid = new CellGrid<Food>(128);
+  private readonly bodyGrid = new BodyGrid(64);
+  private deaths: DeathEvent[] = [];
+  private botRespawnAt = 0;
+  private readonly foodTarget = Math.floor(config.resourceConfig.maxFoodPerRoom * 0.85);
+  private readonly foodHardCap = config.resourceConfig.maxFoodPerRoom * 2;
 
   constructor() {
-    this.tickRate = config.resourceConfig.tickHz;
+    while (this.food.size < this.foodTarget) this.spawnFood();
   }
 
+  humanCount(): number {
+    let n = 0;
+    for (const s of this.snakes.values()) if (!s.isBot) n++;
+    return n;
+  }
+
+  botCount(): number {
+    return this.snakes.size - this.humanCount();
+  }
+
+  addPlayer(sessionId: string, nickname: string): Snake {
+    this.lastHumanAt = Date.now();
+    return this.spawnSnake(sessionId, nickname, false, START_MASS);
+  }
+
+  removeSnake(id: number): void {
+    this.snakes.delete(id);
+  }
+
+  setInput(id: number, angle: number, boost: boolean): void {
+    const s = this.snakes.get(id);
+    if (!s) return;
+    s.targetAngle = normAngle(angle);
+    s.wantsBoost = boost;
+  }
+
+  takeDeaths(): DeathEvent[] {
+    const d = this.deaths;
+    this.deaths = [];
+    return d;
+  }
+
+  leaderboard(): Snake[] {
+    return Array.from(this.snakes.values()).sort((a, b) => b.mass - a.mass);
+  }
+
+  forEachFoodInRect(minX: number, minY: number, maxX: number, maxY: number, cb: (f: Food) => void): void {
+    this.foodGrid.forEachInRect(minX, minY, maxX, maxY, cb);
+  }
+
+  private allocSnakeId(): number {
+    for (let tries = 0; tries < 70000; tries++) {
+      const id = this.nextSnakeId;
+      this.nextSnakeId = this.nextSnakeId >= 65000 ? 1 : this.nextSnakeId + 1;
+      if (!this.snakes.has(id)) return id;
+    }
+    throw new Error('No snake ids available');
+  }
+
+  private findSpawnPoint(): Point {
+    const margin = 300;
+    let best: Point = { x: this.width / 2, y: this.height / 2 };
+    let bestScore = -1;
+    for (let i = 0; i < 12; i++) {
+      const p = {
+        x: margin + Math.random() * (this.width - margin * 2),
+        y: margin + Math.random() * (this.height - margin * 2),
+      };
+      let minD = Infinity;
+      for (const s of this.snakes.values()) {
+        for (let j = 0; j < s.points.length; j += 4) {
+          const dx = s.points[j].x - p.x;
+          const dy = s.points[j].y - p.y;
+          minD = Math.min(minD, dx * dx + dy * dy);
+        }
+      }
+      if (minD > bestScore) {
+        bestScore = minD;
+        best = p;
+      }
+      if (minD > 500 * 500) break;
+    }
+    return best;
+  }
+
+  private spawnSnake(sessionId: string, nickname: string, isBot: boolean, mass: number): Snake {
+    const now = Date.now();
+    const head = this.findSpawnPoint();
+    const toCenter = Math.atan2(this.height / 2 - head.y, this.width / 2 - head.x);
+    const angle = toCenter + (Math.random() - 0.5) * 1.5;
+    const len = targetLength(mass);
+    const points: Point[] = [];
+    for (let d = 0; d <= len; d += 8) {
+      points.push({ x: head.x - Math.cos(angle) * d, y: head.y - Math.sin(angle) * d });
+    }
+    const snake: Snake = {
+      id: this.allocSnakeId(),
+      sessionId,
+      nickname,
+      isBot,
+      points,
+      seq: points.length,
+      angle,
+      targetAngle: angle,
+      mass,
+      wantsBoost: false,
+      boosting: false,
+      boostDrop: 0,
+      protectedUntil: now + SPAWN_PROTECTION_MS,
+      protected: true,
+      color: Math.floor(Math.random() * SNAKE_COLORS.length),
+      kills: 0,
+      bornAt: now,
+      thinkOffset: Math.floor(Math.random() * 4),
+    };
+    this.snakes.set(snake.id, snake);
+    return snake;
+  }
+
+  private addFood(x: number, y: number, size: number, color: number): void {
+    if (this.food.size >= this.foodHardCap) return;
+    x = Math.max(10, Math.min(this.width - 10, x));
+    y = Math.max(10, Math.min(this.height - 10, y));
+    const f: Food = { id: this.nextFoodId++, x, y, size, color };
+    if (this.nextFoodId > 1e9) this.nextFoodId = 1;
+    this.food.set(f.id, f);
+    this.foodGrid.insert(f);
+  }
+
+  private spawnFood(): void {
+    const size = Math.random() < 0.85 ? 1 : 2;
+    this.addFood(
+      20 + Math.random() * (this.width - 40),
+      20 + Math.random() * (this.height - 40),
+      size,
+      Math.floor(Math.random() * SNAKE_COLORS.length)
+    );
+  }
+
+  private removeFood(f: Food): void {
+    this.food.delete(f.id);
+    this.foodGrid.remove(f);
+  }
+
+  private kill(s: Snake, killer: Snake | null, reason: 'snake' | 'wall'): void {
+    if (!this.snakes.has(s.id)) return;
+    this.snakes.delete(s.id);
+    if (killer) killer.kills++;
+
+    const total = s.mass * 0.7;
+    const count = Math.max(1, Math.min(120, Math.ceil(total / 3), s.points.length));
+    const size = Math.max(1, Math.min(5, Math.round(total / count)));
+    const step = s.points.length / count;
+    const r = snakeRadius(s.mass);
+    for (let i = 0; i < count; i++) {
+      const p = s.points[Math.floor(i * step)];
+      this.addFood(p.x + (Math.random() - 0.5) * r * 1.6, p.y + (Math.random() - 0.5) * r * 1.6, size, s.color);
+    }
+
+    this.deaths.push({
+      snakeId: s.id,
+      isBot: s.isBot,
+      score: Math.floor(s.mass),
+      killer: killer ? killer.nickname : null,
+      reason,
+    });
+  }
+
+  private trim(s: Snake): void {
+    const maxLen = targetLength(s.mass);
+    const pts = s.points;
+    let acc = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const dx = pts[i].x - pts[i - 1].x;
+      const dy = pts[i].y - pts[i - 1].y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (acc + d >= maxLen) {
+        const t = d > 0 ? (maxLen - acc) / d : 0;
+        pts[i] = { x: pts[i - 1].x + dx * t, y: pts[i - 1].y + dy * t };
+        pts.length = i + 1;
+        return;
+      }
+      acc += d;
+    }
+  }
+
+  tick(dt: number, now: number): void {
+    this.tickCount++;
+    if (this.humanCount() > 0) this.lastHumanAt = now;
+
+    for (const s of this.snakes.values()) {
+      if (s.isBot && (this.tickCount + s.thinkOffset) % 4 === 0) this.think(s);
+
+      const turn = (TURN_RATE / (1 + s.mass / 600)) * dt;
+      const diff = normAngle(s.targetAngle - s.angle);
+      s.angle = normAngle(s.angle + Math.max(-turn, Math.min(turn, diff)));
+
+      s.boosting = s.wantsBoost && s.mass > MIN_BOOST_MASS;
+      const speed = s.boosting ? BOOST_SPEED : BASE_SPEED;
+      const head = s.points[0];
+      const nx = head.x + Math.cos(s.angle) * speed * dt;
+      const ny = head.y + Math.sin(s.angle) * speed * dt;
+      s.points.unshift({ x: nx, y: ny });
+      s.seq++;
+
+      if (s.boosting) {
+        const cost = BOOST_COST * dt;
+        s.mass -= cost;
+        s.boostDrop += cost * 0.6;
+        if (s.boostDrop >= 2) {
+          const tail = s.points[s.points.length - 1];
+          this.addFood(tail.x, tail.y, 2, s.color);
+          s.boostDrop -= 2;
+        }
+      }
+
+      this.trim(s);
+      s.protected = now < s.protectedUntil;
+
+      const r = snakeRadius(s.mass);
+      this.foodGrid.forEachNear(nx, ny, r + 20, (f) => {
+        const reach = r + foodRadius(f.size) + 4;
+        const dx = f.x - nx;
+        const dy = f.y - ny;
+        if (dx * dx + dy * dy <= reach * reach) {
+          s.mass += f.size;
+          this.removeFood(f);
+        }
+      });
+    }
+
+    this.resolveCollisions();
+
+    let spawned = 0;
+    while (this.food.size < this.foodTarget && spawned++ < 6) this.spawnFood();
+
+    this.manageBots(now);
+  }
+
+  private resolveCollisions(): void {
+    this.bodyGrid.clear();
+    for (const s of this.snakes.values()) {
+      if (s.protected) continue;
+      const pts = s.points;
+      for (let i = 0; i < pts.length; i++) this.bodyGrid.add(pts[i].x, pts[i].y, s.id, i);
+    }
+
+    const dead: Array<[Snake, Snake | null, 'snake' | 'wall']> = [];
+    for (const s of this.snakes.values()) {
+      const h = s.points[0];
+      const r = snakeRadius(s.mass);
+      if (h.x < r || h.y < r || h.x > this.width - r || h.y > this.height - r) {
+        dead.push([s, null, 'wall']);
+        continue;
+      }
+      if (s.protected) continue;
+
+      let hit: Snake | null = null;
+      let headOn = false;
+      this.bodyGrid.forEachNear(h.x, h.y, r + 32, (oid, idx) => {
+        if (hit || oid === s.id) return;
+        const o = this.snakes.get(oid);
+        if (!o) return;
+        const p = o.points[idx];
+        const reach = snakeRadius(o.mass) + r * 0.5;
+        const dx = p.x - h.x;
+        const dy = p.y - h.y;
+        if (dx * dx + dy * dy < reach * reach) {
+          hit = o;
+          headOn = idx <= 1;
+        }
+      });
+
+      if (!hit) continue;
+      const other: Snake = hit;
+      if (!headOn || s.mass <= other.mass) dead.push([s, other, 'snake']);
+    }
+
+    for (const [s, killer, reason] of dead) {
+      this.kill(s, killer, reason);
+    }
+  }
+
+  private dangerAt(x: number, y: number, radius: number, selfId: number): boolean {
+    if (x < 60 || y < 60 || x > this.width - 60 || y > this.height - 60) return true;
+    let danger = false;
+    this.bodyGrid.forEachNear(x, y, radius, (oid) => {
+      if (oid !== selfId) danger = true;
+    });
+    return danger;
+  }
+
+  private think(s: Snake): void {
+    const h = s.points[0];
+    const r = snakeRadius(s.mass);
+    const look = 70 + r * 2;
+
+    const aheadX = h.x + Math.cos(s.angle) * look;
+    const aheadY = h.y + Math.sin(s.angle) * look;
+    if (this.dangerAt(aheadX, aheadY, r + 30, s.id)) {
+      for (const delta of [0.9, -0.9, 1.8, -1.8, 2.7, -2.7]) {
+        const a = s.angle + delta;
+        if (!this.dangerAt(h.x + Math.cos(a) * look, h.y + Math.sin(a) * look, r + 30, s.id)) {
+          s.targetAngle = normAngle(a);
+          s.wantsBoost = false;
+          return;
+        }
+      }
+      s.targetAngle = Math.atan2(this.height / 2 - h.y, this.width / 2 - h.x);
+      return;
+    }
+
+    let best: Food | null = null;
+    let bestScore = Infinity;
+    this.foodGrid.forEachNear(h.x, h.y, 320, (f) => {
+      const dx = f.x - h.x;
+      const dy = f.y - h.y;
+      const score = (dx * dx + dy * dy) / (f.size * f.size);
+      if (score < bestScore) {
+        bestScore = score;
+        best = f;
+      }
+    });
+
+    if (best) {
+      const f: Food = best;
+      s.targetAngle = Math.atan2(f.y - h.y, f.x - h.x);
+      s.wantsBoost = f.size >= 3 && s.mass > 40 && Math.random() < 0.3;
+    } else {
+      s.targetAngle = normAngle(s.targetAngle + (Math.random() - 0.5) * 0.8);
+      s.wantsBoost = false;
+    }
+  }
+
+  private manageBots(now: number): void {
+    if (!config.env.BOT_ENABLE) return;
+    const humans = this.humanCount();
+    const target = Math.max(0, Math.min(config.resourceConfig.botMinPerRoom, config.resourceConfig.roomCapacity - humans));
+    const bots = this.snakes.size - humans;
+
+    if (bots < target && now >= this.botRespawnAt) {
+      const used = new Set(Array.from(this.snakes.values(), (s) => s.nickname));
+      const free = BOT_NAMES.filter((n) => !used.has(n));
+      const pool = free.length ? free : BOT_NAMES;
+      const name = pool[Math.floor(Math.random() * pool.length)];
+      this.spawnSnake('bot', name, true, START_MASS + Math.random() * 50);
+      this.botRespawnAt = now + 1200;
+    } else if (bots > target) {
+      let smallest: Snake | null = null;
+      for (const s of this.snakes.values()) {
+        if (s.isBot && (!smallest || s.mass < smallest.mass)) smallest = s;
+      }
+      if (smallest) this.snakes.delete(smallest.id);
+    }
+  }
+}
+
+export class GameEngine {
+  private readonly rooms = new Map<string, Room>();
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private last = performance.now();
+  private tickMsAvg = 0;
+  onTick: ((rooms: Room[]) => void) | null = null;
+
   start(): void {
-    if (this.tickInterval) return;
-
-    const tickDuration = 1000 / this.tickRate;
-    this.tickInterval = setInterval(() => {
-      this.tick();
-    }, tickDuration);
-
-    logger.info({ tickRate: this.tickRate }, 'Game engine started');
+    if (this.timer) return;
+    const hz = config.resourceConfig.tickHz;
+    this.last = performance.now();
+    this.timer = setInterval(() => this.tick(), 1000 / hz);
+    logger.info({ tickHz: hz }, 'Game engine started');
   }
 
   stop(): void {
-    if (this.tickInterval) {
-      clearInterval(this.tickInterval);
-      this.tickInterval = null;
-      logger.info('Game engine stopped');
-    }
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
   }
 
   private tick(): void {
+    const start = performance.now();
+    const dt = Math.min(0.1, (start - this.last) / 1000);
+    this.last = start;
     const now = Date.now();
-    const dt = (now - this.lastTickTime) / 1000;
-    this.lastTickTime = now;
 
-    for (const room of this.rooms.values()) {
-      room.tick(dt);
+    for (const [id, room] of this.rooms) {
+      room.tick(dt, now);
+      if (room.humanCount() === 0 && now - room.lastHumanAt > 60_000) this.rooms.delete(id);
     }
 
-    // Cleanup empty rooms
-    for (const [roomId, room] of this.rooms.entries()) {
-      if (room.isEmpty() && now - room.createdAt > 60000) {
-        this.rooms.delete(roomId);
-      }
+    try {
+      this.onTick?.(Array.from(this.rooms.values()));
+    } catch (err) {
+      logger.error({ err }, 'onTick handler failed');
     }
+
+    const took = performance.now() - start;
+    this.tickMsAvg = this.tickMsAvg * 0.95 + took * 0.05;
   }
 
-  findOrCreateRoom(): Room {
-    // Find a room with space
+  findRoom(): Room | null {
+    let best: Room | null = null;
     for (const room of this.rooms.values()) {
-      if (
-        room.getHumanCount() < config.resourceConfig.roomCapacity &&
-        room.isActive()
-      ) {
-        return room;
-      }
+      const humans = room.humanCount();
+      if (humans < config.resourceConfig.roomCapacity && (!best || humans > best.humanCount())) best = room;
     }
-
-    // Create new room if under limit
-    if (this.rooms.size < config.resourceConfig.maxRooms) {
-      const room = new Room();
-      this.rooms.set(room.id, room);
-      return room;
-    }
-
-    // Return first available room
-    return this.rooms.values().next().value || new Room();
+    if (best) return best;
+    if (this.rooms.size >= config.resourceConfig.maxRooms) return null;
+    const room = new Room();
+    this.rooms.set(room.id, room);
+    return room;
   }
 
-  getRoom(roomId: string): Room | undefined {
-    return this.rooms.get(roomId);
+  getRoom(id: string): Room | undefined {
+    return this.rooms.get(id);
   }
 
   getRooms(): Room[] {
@@ -90,326 +508,16 @@ export class GameEngine {
   getTotalMetrics() {
     let humanPlayers = 0;
     let bots = 0;
-    let totalRooms = 0;
-
     for (const room of this.rooms.values()) {
-      humanPlayers += room.getHumanCount();
-      bots += room.bots.size;
-      totalRooms++;
+      const h = room.humanCount();
+      humanPlayers += h;
+      bots += room.snakes.size - h;
     }
-
-    return { humanPlayers, bots, totalRooms };
-  }
-}
-
-export class Room {
-  id: string;
-  createdAt: number;
-  lastActivityAt: number;
-  tickCount: number = 0;
-  snakes: Map<string, Snake> = new Map();
-  bots: Set<string> = new Set();
-  food: Map<string, Food> = new Map();
-  private spatialGrid: SpatialGrid<{ x: number; y: number; id: string }>;
-  private foodSpawnCounter: number = 0;
-
-  constructor() {
-    this.id = uuidv4();
-    this.createdAt = Date.now();
-    this.lastActivityAt = Date.now();
-    this.spatialGrid = new SpatialGrid(200);
-
-    this.initializeFood();
-    this.spawnBots();
-  }
-
-  private initializeFood(): void {
-    for (let i = 0; i < Math.floor(config.resourceConfig.maxFoodPerRoom / 2); i++) {
-      this.spawnFood();
-    }
-  }
-
-  private spawnFood(): void {
-    if (this.food.size >= config.resourceConfig.maxFoodPerRoom) return;
-
-    const food: Food = {
-      id: uuidv4(),
-      x: Math.random() * config.resourceConfig.arenaWidth,
-      y: Math.random() * config.resourceConfig.arenaHeight,
-      mass: 1 + Math.random() * 2,
-    };
-
-    this.food.set(food.id, food);
-    this.spatialGrid.insert({ ...food, id: food.id });
-  }
-
-  private spawnBots(): void {
-    if (!config.env.BOT_ENABLE) return;
-
-    const targetBots = Math.min(
-      config.resourceConfig.botMinPerRoom,
-      config.resourceConfig.roomCapacity - this.getHumanCount()
-    );
-
-    while (this.bots.size < targetBots) {
-      const bot = this.createSnake('bot', true);
-      this.bots.add(bot.id);
-    }
-  }
-
-  private createSnake(
-    sessionId: string,
-    isBot: boolean = false
-  ): Snake {
-    const x = Math.random() * config.resourceConfig.arenaWidth;
-    const y = Math.random() * config.resourceConfig.arenaHeight;
-
-    const segments: SnakeSegment[] = [
-      { x, y },
-      { x: x - 10, y },
-      { x: x - 20, y },
-    ];
-
-    const snake: Snake = {
-      id: uuidv4(),
-      sessionId,
-      nickname: isBot ? `Bot ${Math.random().toString(36).slice(2, 5)}` : 'Player',
-      segments,
-      direction: 1,
-      nextDirection: 1,
-      mass: 3,
-      boost: 0,
-      boosting: false,
-      protected: false,
-      protectedUntil: 0,
-      isDead: false,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      runId: uuidv4(),
-      peakScore: 0,
-    };
-
-    this.snakes.set(snake.id, snake);
-    return snake;
-  }
-
-  addPlayer(sessionId: string, nickname: string): Snake {
-    const snake = this.createSnake(sessionId);
-    snake.nickname = nickname;
-    this.lastActivityAt = Date.now();
-    return snake;
-  }
-
-  removePlayer(snakeId: string): void {
-    this.snakes.delete(snakeId);
-    this.lastActivityAt = Date.now();
-  }
-
-  updateInput(snakeId: string, direction: number, boost: boolean): void {
-    const snake = this.snakes.get(snakeId);
-    if (!snake) return;
-
-    snake.nextDirection = direction;
-    if (boost && snake.mass >= config.resourceConfig.maxSnakeLength * 0.1) {
-      snake.boosting = true;
-    }
-  }
-
-  tick(dt: number): void {
-    this.tickCount++;
-
-    // Update snake directions and movement
-    for (const snake of this.snakes.values()) {
-      if (snake.isDead) continue;
-
-      // Update direction
-      if (
-        snake.nextDirection !== snake.direction &&
-        Math.abs(snake.nextDirection - snake.direction) !== 2
-      ) {
-        snake.direction = snake.nextDirection;
-      }
-
-      // Move snake
-      const head = snake.segments[0];
-      const speed = 200; // pixels per second
-      const distance = speed * dt;
-
-      let newX = head.x;
-      let newY = head.y;
-
-      switch (snake.direction) {
-        case 0: // up
-          newY -= distance;
-          break;
-        case 1: // right
-          newX += distance;
-          break;
-        case 2: // down
-          newY += distance;
-          break;
-        case 3: // left
-          newX -= distance;
-          break;
-      }
-
-      // Wrap around arena
-      newX = ((newX % config.resourceConfig.arenaWidth) + config.resourceConfig.arenaWidth) % config.resourceConfig.arenaWidth;
-      newY = ((newY % config.resourceConfig.arenaHeight) + config.resourceConfig.arenaHeight) % config.resourceConfig.arenaHeight;
-
-      // Handle boost
-      if (snake.boosting) {
-        snake.mass -= 0.5;
-        if (snake.mass < 2) {
-          snake.boosting = false;
-        }
-      }
-
-      // Add new segment
-      snake.segments.unshift({ x: newX, y: newY });
-
-      // Check food collection
-      const nearby = this.spatialGrid.getNearby(newX, newY, 15);
-      for (const item of nearby) {
-        const food = this.food.get(item.id);
-        if (food) {
-          snake.mass += food.mass;
-          snake.peakScore = Math.max(snake.peakScore, Math.floor(snake.mass * 10));
-          this.food.delete(food.id);
-          this.spatialGrid.remove(item);
-          break;
-        }
-      }
-
-      // Remove tail segment to maintain length
-      if (snake.segments.length > config.resourceConfig.maxSnakeLength) {
-        snake.segments.pop();
-      }
-
-      // Check collisions with other snakes
-      for (const otherSnake of this.snakes.values()) {
-        if (otherSnake === snake || otherSnake.isDead) continue;
-
-        for (let i = 0; i < otherSnake.segments.length; i++) {
-          const segment = otherSnake.segments[i];
-          const dx = newX - segment.x;
-          const dy = newY - segment.y;
-          if (dx * dx + dy * dy < 100) {
-            if (i === 0) {
-              // Head-to-head collision
-              if (snake.mass > otherSnake.mass) {
-                otherSnake.isDead = true;
-              } else if (otherSnake.mass > snake.mass) {
-                snake.isDead = true;
-              } else {
-                snake.isDead = true;
-                otherSnake.isDead = true;
-              }
-            } else {
-              // Head-to-body collision
-              snake.isDead = true;
-            }
-            break;
-          }
-        }
-      }
-
-      // Check self-collision
-      for (let i = 1; i < Math.min(snake.segments.length, 4); i++) {
-        const segment = snake.segments[i];
-        const dx = newX - segment.x;
-        const dy = newY - segment.y;
-        if (dx * dx + dy * dy < 50) {
-          snake.isDead = true;
-          break;
-        }
-      }
-
-      // Check protection expiry
-      if (
-        snake.protected &&
-        Date.now() > snake.protectedUntil
-      ) {
-        snake.protected = false;
-      }
-    }
-
-    // Spawn food if needed
-    this.foodSpawnCounter++;
-    if (
-      this.foodSpawnCounter > 30 &&
-      this.food.size < Math.floor(config.resourceConfig.maxFoodPerRoom * 0.7)
-    ) {
-      this.spawnFood();
-      this.foodSpawnCounter = 0;
-    }
-
-    // Bot AI (simplified)
-    for (const botId of this.bots) {
-      const bot = this.snakes.get(botId);
-      if (bot && !bot.isDead) {
-        const nearbyFood = this.spatialGrid.getNearby(
-          bot.segments[0].x,
-          bot.segments[0].y,
-          300
-        );
-        if (nearbyFood.length > 0) {
-          const target = nearbyFood[0];
-          const dx = target.x - bot.segments[0].x;
-          const dy = target.y - bot.segments[0].y;
-          if (Math.abs(dx) > Math.abs(dy)) {
-            bot.nextDirection = dx > 0 ? 1 : 3;
-          } else {
-            bot.nextDirection = dy > 0 ? 2 : 0;
-          }
-        }
-      }
-    }
-  }
-
-  getHumanCount(): number {
-    return this.snakes.size - this.bots.size;
-  }
-
-  isEmpty(): boolean {
-    return this.getHumanCount() === 0 && this.bots.size === 0;
-  }
-
-  isActive(): boolean {
-    return Date.now() - this.lastActivityAt < 30000; // 30 seconds
-  }
-
-  getGameState() {
-    const leaderboard = Array.from(this.snakes.values())
-      .filter(s => !s.isDead)
-      .sort((a, b) => b.mass - a.mass)
-      .slice(0, 10)
-      .map((s, i) => ({
-        rank: i + 1,
-        nickname: s.nickname,
-        score: Math.floor(s.mass * 10),
-        isBot: this.bots.has(s.id),
-      }));
-
     return {
-      tick: this.tickCount,
-      time: Date.now(),
-      snakes: Array.from(this.snakes.values())
-        .filter(s => !s.isDead)
-        .map(s => ({
-          id: s.id,
-          nickname: s.nickname,
-          color: s.color,
-          segments: s.segments.map(seg => [seg.x, seg.y] as [number, number]),
-          mass: s.mass,
-          boosting: s.boosting,
-          protected: s.protected,
-        })),
-      food: Array.from(this.food.values()).map(f => ({
-        id: f.id,
-        x: f.x,
-        y: f.y,
-      })),
-      leaderboard,
+      humanPlayers,
+      bots,
+      totalRooms: this.rooms.size,
+      avgTickMs: Math.round(this.tickMsAvg * 100) / 100,
     };
   }
 }

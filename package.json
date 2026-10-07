@@ -1,32 +1,27 @@
 {
   "name": "snake-game",
   "version": "1.0.0",
-  "description": "Multiplayer snake.io game with low-resource optimization and ES/EN support",
+  "description": "Multiplayer snake .io game with low-resource optimization and ES/EN support",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
   "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client",
+    "packages/loadtest"
+  ],
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "npm run dev --workspace=packages/server & npm run dev --workspace=packages/client",
     "build": "npm run build -w @snake/shared && npm run build -w @snake/server && npm run build -w @snake/client",
-    "start": "npm start --workspace=packages/server",
-    "typecheck": "npm run typecheck --workspaces",
-    "test": "npm test --workspaces",
-    "test:e2e": "npm run test:e2e --workspace=e2e",
-    "load-test": "npm start --workspace=packages/loadtest",
-    "docker:build": "docker build -t snake-game:latest .",
-    "docker:up": "docker compose up --build",
-    "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f app"
+    "start": "npm start -w @snake/server",
+    "typecheck": "npm run build -w @snake/shared && npm run typecheck -w @snake/server && npm run typecheck -w @snake/client",
+    "test": "vitest run",
+    "load-test": "npm run build -w @snake/loadtest && npm start -w @snake/loadtest --"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.4.0",
-    "vitest": "^1.0.0",
-    "@vitest/ui": "^1.0.0"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
   }
 }

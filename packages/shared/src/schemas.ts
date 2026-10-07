@@ -1,58 +1,24 @@
 import { z } from 'zod';
 
-export const InputIntentSchema = z.object({
-  direction: z.number().int().min(0).max(3),
-  boost: z.boolean(),
-  timestamp: z.number().int().positive(),
+export const InputMessageSchema = z.object({
+  type: z.literal('input'),
+  a: z.number().min(-10).max(10),
+  b: z.boolean(),
 });
 
-export const JoinRoomSchema = z.object({
-  nickname: z
-    .string()
-    .min(1)
-    .max(16)
-    .regex(/^[\p{L}\p{N}\s_-]+$/u, 'Invalid characters in nickname'),
-  sessionId: z.string().uuid(),
-});
-
-export const GameStateSchema = z.object({
-  tick: z.number().int().nonnegative(),
-  time: z.number().int().positive(),
-  snakes: z.array(
-    z.object({
-      id: z.string(),
-      nickname: z.string(),
-      color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-      segments: z.array(z.tuple([z.number(), z.number()])),
-      mass: z.number().positive(),
-      boosting: z.boolean(),
-      protected: z.boolean(),
-    })
-  ),
-  food: z.array(
-    z.object({
-      id: z.string(),
-      x: z.number(),
-      y: z.number(),
-    })
-  ),
-  leaderboard: z.array(
-    z.object({
-      rank: z.number().int().positive(),
-      nickname: z.string(),
-      score: z.number().int().nonnegative(),
-      isBot: z.boolean(),
-    })
-  ),
+export const JoinMessageSchema = z.object({
+  type: z.literal('join'),
+  nickname: z.string().min(1).max(64),
+  sessionId: z.string().regex(/^[A-Za-z0-9-]{8,64}$/),
 });
 
 export const ReviveClaimSchema = z.object({
   deathId: z.string(),
-  sessionId: z.string().uuid(),
+  sessionId: z.string().regex(/^[A-Za-z0-9-]{8,64}$/),
 });
 
 export const AdminLoginSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(8),
 });
 
@@ -74,10 +40,8 @@ export const AdminConfigSchema = z.object({
 
 export const MonetizationConfigSchema = z.object({
   enable: z.boolean(),
-  scriptUrl: z.string().url().optional(),
+  scriptUrl: z.url().optional(),
   rewardZoneId: z.string().optional(),
   frequencyCapDaily: z.number().int().positive().optional(),
 });
 
-// Types are re-exported from types.ts
-// Schemas here are for runtime validation only
