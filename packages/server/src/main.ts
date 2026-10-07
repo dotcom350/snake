@@ -4,12 +4,12 @@ import fastifyHelmet from '@fastify/helmet';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { config } from './config';
-import { logger, createChildLogger } from './logger';
-import { initDatabase, closeDatabase } from './db';
-import { GameEngine } from './game/engine';
-import { WebSocketServer } from './ws';
-import { registerRoutes } from './api/routes';
+import { config } from './config.js';
+import { logger, createChildLogger } from './logger.js';
+import { initDatabase, closeDatabase } from './db/index.js';
+import { GameEngine } from './game/engine.js';
+import { WebSocketServer } from './ws/index.js';
+import { registerRoutes } from './api/routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverLogger = createChildLogger('server');
@@ -61,8 +61,11 @@ async function main() {
     await registerRoutes(fastify, gameEngine);
 
     // SPA fallback
-    fastify.get('*', async (_request, reply) => {
-      return reply.sendFile('index.html');
+    fastify.setNotFoundHandler((request, reply) => {
+      if (request.method === 'GET' && !request.url.startsWith('/api')) {
+        return reply.sendFile('index.html');
+      }
+      return reply.code(404).send({ error: 'NOT_FOUND' });
     });
 
     // Start server

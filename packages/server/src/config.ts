@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import os from 'os';
 import { getResourceConfig, mergeResourceConfig } from '@snake/shared';
 import type { ResourceConfig, ResourceProfile } from '@snake/shared';
 
@@ -80,7 +81,8 @@ export class Config {
     this.env = parsed;
 
     const baseProfile = getResourceConfig(
-      parsed.RESOURCE_PROFILE as ResourceProfile
+      parsed.RESOURCE_PROFILE as ResourceProfile,
+      detectHost()
     );
 
     const overrides: Partial<typeof baseProfile> = {};
@@ -121,3 +123,12 @@ export class Config {
 }
 
 export const config = Config.getInstance();
+
+function detectHost() {
+  const total = os.totalmem();
+  const constrained = process.constrainedMemory?.() ?? 0;
+  return {
+    cpuCount: os.availableParallelism(),
+    memoryBytes: constrained > 0 && constrained < total ? constrained : total,
+  };
+}

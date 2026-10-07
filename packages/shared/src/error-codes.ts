@@ -1,4 +1,4 @@
-import type { ErrorCode, Locale } from './types';
+import type { ErrorCode, Locale } from './types.js';
 
 export const ERROR_MESSAGES: Record<ErrorCode, Record<Locale, string>> = {
   NICKNAME_INVALID: {

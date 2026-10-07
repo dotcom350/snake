@@ -1,4 +1,4 @@
-import type { Locale } from './types';
+import type { Locale } from './types.js';
 
 export interface I18nStrings {
   [key: string]: string | I18nStrings;

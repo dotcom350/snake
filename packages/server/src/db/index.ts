@@ -1,7 +1,10 @@
-import { Pool } from 'pg';
-import { config } from '../config';
-import { createChildLogger } from '../logger';
-import { runMigrations } from './migrations';
+import pg from 'pg';
+import type { QueryResultRow } from 'pg';
+const { Pool } = pg;
+type Pool = pg.Pool;
+import { config } from '../config.js';
+import { createChildLogger } from '../logger.js';
+import { runMigrations } from './migrations.js';
 
 const logger = createChildLogger('db');
 
@@ -55,7 +58,7 @@ export function getPool(): Pool {
   return pool;
 }
 
-export async function query<T = unknown>(
+export async function query<T extends QueryResultRow = QueryResultRow>(
   sql: string,
   params?: unknown[]
 ): Promise<T[]> {
@@ -64,7 +67,7 @@ export async function query<T = unknown>(
   return result.rows;
 }
 
-export async function queryOne<T = unknown>(
+export async function queryOne<T extends QueryResultRow = QueryResultRow>(
   sql: string,
   params?: unknown[]
 ): Promise<T | null> {

@@ -1,5 +1,4 @@
-import type { ResourceProfile, ResourceConfig } from './types';
-import { cpus, totalmem } from 'os';
+import type { ResourceProfile, ResourceConfig } from './types.js';
 
 export const PROFILE_DEFAULTS: Record<ResourceProfile, Omit<ResourceConfig, 'profile'>> = {
   low: {
@@ -72,26 +71,22 @@ export const PROFILE_DEFAULTS: Record<ResourceProfile, Omit<ResourceConfig, 'pro
   },
 };
 
-export function detectResourceProfile(): ResourceProfile {
-  try {
-    const cpuCount = cpus().length;
-    const memoryGB = totalmem() / (1024 * 1024 * 1024);
-
-    if (memoryGB <= 1.5 || cpuCount <= 1) {
-      return 'low';
-    }
-    if (memoryGB <= 4 || cpuCount <= 2) {
-      return 'standard';
-    }
-    return 'high';
-  } catch (error) {
-    return 'standard';
-  }
+export interface HostResources {
+  cpuCount: number;
+  memoryBytes: number;
 }
 
-export function getResourceConfig(profile: ResourceProfile): ResourceConfig {
+export function detectResourceProfile(host?: HostResources): ResourceProfile {
+  if (!host) return 'standard';
+  const memoryGB = host.memoryBytes / (1024 * 1024 * 1024);
+  if (memoryGB <= 1.5 || host.cpuCount <= 1) return 'low';
+  if (memoryGB <= 4 || host.cpuCount <= 2) return 'standard';
+  return 'high';
+}
+
+export function getResourceConfig(profile: ResourceProfile, host?: HostResources): ResourceConfig {
   if (profile === 'auto') {
-    const detected = detectResourceProfile();
+    const detected = detectResourceProfile(host);
     return { profile: detected, ...PROFILE_DEFAULTS[detected] };
   }
 

@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "npm run dev --workspace=packages/server & npm run dev --workspace=packages/client",
-    "build": "npm run build --workspaces",
+    "build": "npm run build -w @snake/shared && npm run build -w @snake/server && npm run build -w @snake/client",
     "start": "npm start --workspace=packages/server",
     "typecheck": "npm run typecheck --workspaces",
     "test": "npm test --workspaces",

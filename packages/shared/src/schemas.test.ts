@@ -4,7 +4,7 @@ import {
   JoinRoomSchema,
   AdminLoginSchema,
   AdminConfigSchema,
-} from './schemas';
+} from './schemas.js';
 
 describe('Schemas', () => {
   describe('InputIntentSchema', () => {

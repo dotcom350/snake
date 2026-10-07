@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectResourceProfile, getResourceConfig, PROFILE_DEFAULTS } from './resource-profiles';
+import { detectResourceProfile, getResourceConfig, PROFILE_DEFAULTS } from './resource-profiles.js';
 
 describe('Resource Profiles', () => {
   it('should provide profile defaults', () => {

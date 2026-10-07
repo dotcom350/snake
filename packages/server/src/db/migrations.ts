@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { createChildLogger } from '../logger';
+import { createChildLogger } from '../logger.js';
 
 const logger = createChildLogger('migrations');
 

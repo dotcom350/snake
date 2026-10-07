@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import WebSocket, { WebSocketServer as WSServer } from 'ws';
 import http from 'http';
-import type { InputIntent, GameState as GameStateType } from '@snake/shared';
+import type { GameState as GameStateType } from '@snake/shared';
 import { InputIntentSchema, JoinRoomSchema, BinaryCodec } from '@snake/shared';
-import { GameEngine, Room } from '../game/engine';
-import { createChildLogger } from '../logger';
-import { config } from '../config';
+import { GameEngine } from '../game/engine.js';
+import { createChildLogger } from '../logger.js';
+import { config } from '../config.js';
 
 const logger = createChildLogger('ws');
 

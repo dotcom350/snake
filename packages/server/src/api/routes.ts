@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { GameEngine } from '../game/engine';
-import { createChildLogger } from '../logger';
+import { GameEngine } from '../game/engine.js';
+import { createChildLogger } from '../logger.js';
 
 const logger = createChildLogger('api');
 

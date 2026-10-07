@@ -1,8 +1,8 @@
-import { v4 as uuidv4 } from 'crypto';
-import type { Snake, Food, Room as RoomType, SnakeSegment } from '@snake/shared';
-import { SpatialGrid } from './spatial-grid';
-import { createChildLogger } from '../logger';
-import { config } from '../config';
+import { randomUUID as uuidv4 } from 'crypto';
+import type { Snake, Food, SnakeSegment } from '@snake/shared';
+import { SpatialGrid } from './spatial-grid.js';
+import { createChildLogger } from '../logger.js';
+import { config } from '../config.js';
 
 const logger = createChildLogger('game');
 
@@ -14,7 +14,7 @@ const COLORS = [
 export class GameEngine {
   private rooms: Map<string, Room> = new Map();
   private tickRate: number;
-  private tickInterval: NodeJS.Timer | null = null;
+  private tickInterval: ReturnType<typeof setInterval> | null = null;
   private lastTickTime: number = Date.now();
 
   constructor() {
@@ -106,7 +106,7 @@ export class Room {
   id: string;
   createdAt: number;
   lastActivityAt: number;
-  tick: number = 0;
+  tickCount: number = 0;
   snakes: Map<string, Snake> = new Map();
   bots: Set<string> = new Set();
   food: Map<string, Food> = new Map();
@@ -215,7 +215,7 @@ export class Room {
   }
 
   tick(dt: number): void {
-    this.tick++;
+    this.tickCount++;
 
     // Update snake directions and movement
     for (const snake of this.snakes.values()) {
@@ -391,7 +391,7 @@ export class Room {
       }));
 
     return {
-      tick: this.tick,
+      tick: this.tickCount,
       time: Date.now(),
       snakes: Array.from(this.snakes.values())
         .filter(s => !s.isDead)
