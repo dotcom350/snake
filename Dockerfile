@@ -1,53 +1,37 @@
 # Multi-stage build for production deployment
 # Optimized for low resource usage
 
-# Stage 1: Dependencies
-FROM node:22-alpine AS deps
-WORKDIR /app
-COPY package*.json ./
-COPY packages/*/package*.json ./packages/
-RUN npm ci --omit=dev
-
-# Stage 2: Builder
+# Stage 1: Builder
 FROM node:22-alpine AS builder
 WORKDIR /app
+
+# First, upgrade npm to support workspaces
+RUN npm install -g npm@12
+
 COPY package*.json ./
 COPY packages ./packages
 COPY tsconfig.json ./
 
-# Install build dependencies
-RUN npm ci
+# Install all dependencies at root level
+RUN npm install
 
-# Build shared
-WORKDIR /app/packages/shared
+# Build all packages
 RUN npm run build
 
-# Build server
-WORKDIR /app/packages/server
-RUN npm run build
+# Install only production dependencies
+RUN npm install --omit=dev
 
-# Build client
-WORKDIR /app/packages/client
-RUN npm run build
-
-# Stage 3: Runtime
+# Stage 2: Runtime
 FROM node:22-alpine
 WORKDIR /app
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 
-# Copy built artifacts from builder
-COPY --from=builder /app/packages/server/dist ./dist
-COPY --from=builder /app/packages/client/dist ./public
-
-# Copy dependencies
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/server/node_modules ./node_modules/server
-COPY --from=deps /app/packages/shared/node_modules ./node_modules/shared
-
-# Set ownership
-RUN chown -R nodejs:nodejs /app
+# Copy built artifacts and dependencies from builder
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/packages/server/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/packages/client/dist ./public
 
 USER nodejs
 

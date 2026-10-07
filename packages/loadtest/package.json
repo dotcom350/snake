@@ -8,7 +8,7 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@snake/shared": "workspace:*",
+    "@snake/shared": "file:../shared",
     "ws": "^8.15.0"
   },
   "devDependencies": {

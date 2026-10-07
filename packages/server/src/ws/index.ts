@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import type { WebSocket } from '@fastify/websocket';
-import { v4 as uuidv4 } from 'crypto';
+import WebSocket, { WebSocketServer as WSServer } from 'ws';
+import http from 'http';
 import type { InputIntent, GameState as GameStateType } from '@snake/shared';
 import { InputIntentSchema, JoinRoomSchema, BinaryCodec } from '@snake/shared';
 import { GameEngine, Room } from '../game/engine';
@@ -21,16 +21,22 @@ interface ClientConnection {
 export class WebSocketServer {
   private engine: GameEngine;
   private clients: Map<string, ClientConnection> = new Map();
-  private broadcastInterval: NodeJS.Timer | null = null;
+  private broadcastInterval: NodeJS.Timeout | null = null;
+  private wsServer: WSServer | null = null;
 
   constructor(engine: GameEngine) {
     this.engine = engine;
   }
 
   register(fastify: FastifyInstance): void {
-    fastify.register(async (fastify) => {
-      fastify.get(config.env.WS_PATH, { websocket: true }, (socket, request) => {
-        this.handleConnection(socket, request);
+    // WebSocket will be attached to the HTTP server
+    // after Fastify listens
+    fastify.addHook('onListen', () => {
+      const server = fastify.server as http.Server;
+      this.wsServer = new WSServer({ server, path: config.env.WS_PATH });
+
+      this.wsServer.on('connection', (socket) => {
+        this.handleConnection(socket);
       });
     });
   }
@@ -51,11 +57,14 @@ export class WebSocketServer {
       clearInterval(this.broadcastInterval);
       this.broadcastInterval = null;
     }
+    if (this.wsServer) {
+      this.wsServer.close();
+    }
   }
 
-  private handleConnection(socket: WebSocket, request: any): void {
-    const clientId = uuidv4();
-    const sessionId = request.cookies?.sessionId || uuidv4();
+  private handleConnection(socket: WebSocket): void {
+    const clientId = Math.random().toString(36).substring(2, 15);
+    const sessionId = Math.random().toString(36).substring(2, 15);
     const connection: ClientConnection = {
       socket,
       sessionId,
@@ -66,7 +75,7 @@ export class WebSocketServer {
 
     logger.info({ clientId, sessionId }, 'Client connected');
 
-    socket.on('message', (data) => {
+    socket.on('message', (data: any) => {
       try {
         this.handleMessage(clientId, connection, data);
       } catch (err) {
@@ -78,7 +87,7 @@ export class WebSocketServer {
       this.handleDisconnect(clientId, connection);
     });
 
-    socket.on('error', (err) => {
+    socket.on('error', (err: Error) => {
       logger.error({ err, clientId }, 'WebSocket error');
     });
   }

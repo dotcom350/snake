@@ -79,10 +79,5 @@ export const MonetizationConfigSchema = z.object({
   frequencyCapDaily: z.number().int().positive().optional(),
 });
 
-export type InputIntent = z.infer<typeof InputIntentSchema>;
-export type JoinRoom = z.infer<typeof JoinRoomSchema>;
-export type GameState = z.infer<typeof GameStateSchema>;
-export type ReviveClaim = z.infer<typeof ReviveClaimSchema>;
-export type AdminLogin = z.infer<typeof AdminLoginSchema>;
-export type AdminConfig = z.infer<typeof AdminConfigSchema>;
-export type MonetizationConfig = z.infer<typeof MonetizationConfigSchema>;
+// Types are re-exported from types.ts
+// Schemas here are for runtime validation only

@@ -9,16 +9,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@snake/shared": "workspace:*",
-    "fastify": "^4.25.0",
-    "@fastify/cors": "^8.5.0",
-    "@fastify/helmet": "^11.1.0",
-    "@fastify/websocket": "^10.1.0",
-    "@fastify/static": "^6.12.0",
+    "@snake/shared": "file:../shared",
+    "fastify": "^4.24.0",
+    "@fastify/cors": "^8.4.0",
+    "@fastify/helmet": "^11.0.0",
+    "@fastify/static": "^6.11.0",
     "pg": "^8.11.0",
-    "pino": "^8.17.0",
-    "pino-pretty": "^10.3.0",
-    "zod": "^3.22.0"
+    "pino": "^8.16.0",
+    "pino-pretty": "^10.2.0",
+    "zod": "^3.22.0",
+    "ws": "^8.14.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
