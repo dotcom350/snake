@@ -6,20 +6,20 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # First, upgrade npm to support workspaces
-RUN npm install -g npm@12
+RUN npm install -g npm@latest
 
 COPY package*.json ./
 COPY packages ./packages
 COPY tsconfig.json ./
 
-# Install all dependencies at root level
-RUN npm install
+# Install all dependencies (including workspaces)
+RUN npm install --workspaces
 
 # Build all packages
-RUN npm run build
+RUN npm run build --workspaces
 
-# Install only production dependencies
-RUN npm install --omit=dev
+# Remove dev dependencies
+RUN npm prune --production --workspaces
 
 # Stage 2: Runtime
 FROM node:22-alpine

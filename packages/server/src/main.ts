@@ -1,5 +1,4 @@
 import Fastify from 'fastify';
-import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyStatic from '@fastify/static';
@@ -41,8 +40,6 @@ async function main() {
       origin: config.corsOrigins.length > 0 ? config.corsOrigins : true,
       credentials: true,
     });
-
-    await fastify.register(fastifyWebsocket);
 
     // Serve static files (frontend)
     const publicDir = path.join(__dirname, '../../client/dist');
