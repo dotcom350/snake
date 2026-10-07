@@ -9,7 +9,7 @@ Get the snake game running in 5 minutes.
 cp .env.example .env
 
 # Start everything
-docker compose up --build
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 
 # Open browser
 # http://localhost:3000
@@ -61,7 +61,7 @@ LOG_LEVEL=debug
 
 1. **Set up Dokploy** on your VPS (5 minutes, https://dokploy.com)
 2. **Connect repo** in Dokploy dashboard
-3. **Select `compose.yaml`** file
+3. **Select `docker-compose.yml`** file
 4. **Set env vars** (copy from `.env.example`)
 5. **Add domain** (Dokploy auto-handles HTTPS)
 6. **Deploy** (Dokploy builds image, starts containers, runs migrations)

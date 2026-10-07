@@ -460,7 +460,7 @@ If you outgrow single-server:
 
 ### Development
 ```bash
-docker compose -f compose.yaml -f compose.dev.yaml up
+docker compose -f docker-compose.yml -f docker-compose.local.yml up
 ```
 - App rebuilds on code changes
 - Hot reload on client changes

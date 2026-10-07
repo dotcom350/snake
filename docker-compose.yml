@@ -3,10 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: snake-game-app
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-changeMe123!}@postgres:5432/${DB_NAME:-snake_game}
@@ -42,7 +41,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/healthz"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/healthz"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -51,19 +50,9 @@ services:
     cpus: ${APP_CPUS:-0.5}
     networks:
       - snake-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.snake.entrypoints=web,websecure"
-      - "traefik.http.routers.snake.rule=Host(`${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.snake.tls.certResolver=letsencrypt"
-      - "traefik.http.services.snake.loadbalancer.server.port=3000"
-      - "traefik.http.middlewares.snake-redirect.redirectscheme.scheme=https"
-      - "traefik.http.routers.snake-http.rule=Host(`${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.snake-http.middlewares=snake-redirect"
 
   postgres:
     image: postgres:16-alpine
-    container_name: snake-game-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}

@@ -50,7 +50,7 @@ RESOURCE_PROFILE=standard
 ```bash
 docker compose up postgres -d
 # Or with dev overrides:
-docker compose -f compose.yaml -f compose.dev.yaml up postgres -d
+docker compose -f docker-compose.yml -f docker-compose.local.yml up postgres -d
 ```
 
 ### 5. Build Packages
@@ -89,7 +89,7 @@ Then open http://localhost:5173 in your browser.
 **Option B: All-in-One with Docker**
 
 ```bash
-docker compose -f compose.yaml -f compose.dev.yaml up --build
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 ```
 
 Access: http://localhost:3000 or http://localhost:5173
@@ -121,7 +121,7 @@ npm run docker:build
 ```bash
 # Pull and run latest image
 docker compose pull
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 
 # Check logs
 docker compose logs -f app
@@ -134,7 +134,7 @@ docker compose ps
 
 1. Set up Dokploy on your VPS (https://dokploy.com/docs/core/getting-started)
 2. Connect GitHub repository
-3. Select `compose.yaml`
+3. Select `docker-compose.yml`
 4. Configure environment variables (from `.env.example`)
 5. Add domain and click Deploy
 
@@ -240,7 +240,7 @@ npm run load-test ws://localhost:3000/ws 50 30
 
 ### E2E Testing (Manual)
 
-1. Start app: `npm run dev` or `docker compose up`
+1. Start app: `npm run dev` or `docker compose -f docker-compose.yml -f docker-compose.local.yml up`
 2. Open http://localhost:5173
 3. Enter nickname and click Play
 4. Test controls:

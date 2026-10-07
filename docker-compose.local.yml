@@ -1,0 +1,6 @@
+# Local only: publish the app on http://localhost:3000
+# docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+services:
+  app:
+    ports:
+      - "3000:3000"

@@ -30,7 +30,7 @@ npm install
 cp .env.example .env
 
 # Start database and app with Docker Compose
-docker compose -f compose.yaml -f compose.dev.yaml up
+docker compose -f docker-compose.yml -f docker-compose.local.yml up
 
 # In another terminal, start the dev servers
 npm run dev
@@ -48,7 +48,7 @@ npm run build
 npm run docker:build
 
 # Run with Docker Compose
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 ```
 
 ## Environment Variables
@@ -115,7 +115,7 @@ Dokploy provides a simple way to deploy on your own infrastructure.
    - Connect your GitHub repository
 
 3. **Configure Compose**
-   - Select `compose.yaml` file
+   - Select `docker-compose.yml` file
 
 4. **Set Environment Variables**
    - Copy values from `.env.example`
@@ -198,7 +198,7 @@ npm test
 
 ### Run Locally with Docker
 ```bash
-docker compose up --build
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 ```
 
 ### Health Checks
@@ -279,7 +279,7 @@ npm install
 cp .env.example .env
 
 # Iniciar con Docker Compose
-docker compose up
+docker compose -f docker-compose.yml -f docker-compose.local.yml up
 
 # En otra terminal, iniciar desarrollo
 npm run dev
@@ -289,7 +289,7 @@ npm run dev
 
 1. Crear instancia de Dokploy en tu VPS
 2. Conectar repositorio
-3. Seleccionar `compose.yaml`
+3. Seleccionar `docker-compose.yml`
 4. Configurar variables de entorno
 5. Mapear dominio (https automático)
 6. Deploy
