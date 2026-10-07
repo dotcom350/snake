@@ -6,7 +6,8 @@
       "WebFetch(domain:docs.dokploy.com)",
       "Bash(git add *)",
       "Bash(git commit -m 'Initial project setup: monorepo structure, core game engine, React frontend, Docker config *)",
-      "Bash(git commit -m 'Add tests, load testing tool, and utility functions *)"
+      "Bash(git commit -m 'Add tests, load testing tool, and utility functions *)",
+      "Bash(git commit -m 'Add comprehensive documentation and setup guide *)"
     ]
   }
 }
