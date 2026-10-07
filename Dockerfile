@@ -6,8 +6,8 @@ COPY package*.json ./
 COPY packages ./packages
 COPY tsconfig.json ./
 
-# Fix workspace protocol for Alpine's npm
-RUN find . -name "package.json" -exec sed -i 's/"workspace:\*"/"*"/g' {} \;
+# Fix workspace protocol for Alpine's npm - use file: paths
+RUN find . -name "package.json" -exec sed -i 's|"@snake/shared": "workspace:\*"|"@snake/shared": "file:../shared"|g' {} \;
 
 RUN npm install && npm run build && npm prune --production
 
