@@ -2,11 +2,12 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-RUN npm install -g npm@latest
-
 COPY package*.json ./
 COPY packages ./packages
 COPY tsconfig.json ./
+
+# Fix workspace protocol for Alpine's npm
+RUN find . -name "package.json" -exec sed -i 's/"workspace:\*"/"*"/g' {} \;
 
 RUN npm install && npm run build && npm prune --production
 
