@@ -1,0 +1,30 @@
+{
+  "name": "snake-game",
+  "version": "1.0.0",
+  "description": "Multiplayer snake.io game with low-resource optimization and ES/EN support",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace=packages/server & npm run dev --workspace=packages/client",
+    "build": "npm run build --workspaces",
+    "start": "npm start --workspace=packages/server",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm test --workspaces",
+    "test:e2e": "npm run test:e2e --workspace=e2e",
+    "load-test": "npm start --workspace=packages/loadtest",
+    "docker:build": "docker build -t snake-game:latest .",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.4.0"
+  }
+}

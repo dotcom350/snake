@@ -1,0 +1,315 @@
+# Snake Arena - Multiplayer Snake Game
+
+A production-ready, low-resource optimized multiplayer snake game with modern UI, bilingual support (EN/ES), and comprehensive admin panel.
+
+## Features
+
+- **Multiplayer Gameplay**: Real-time action with smooth movement and collisions
+- **Server Authoritative**: Secure, cheat-proof game logic on the backend
+- **Low Resource Optimized**: Runs efficiently on 1 vCPU / 1 GB RAM servers
+- **Bilingual UI**: Full English and Spanish support with auto-detection
+- **Admin Panel**: Real-time metrics, room management, and settings
+- **Docker Ready**: Multi-stage build, Dokploy compatible
+- **Responsive Design**: Works on desktop, tablet, and mobile
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 22+ and npm
+- Docker & Docker Compose (for containerized deployment)
+- PostgreSQL 16+ (or use Docker container)
+
+### Local Development
+
+```bash
+# Install dependencies
+npm install
+
+# Set up environment
+cp .env.example .env
+
+# Start database and app with Docker Compose
+docker compose -f compose.yaml -f compose.dev.yaml up
+
+# In another terminal, start the dev servers
+npm run dev
+```
+
+The app will be available at http://localhost:3000 and hot-reload on code changes.
+
+### Production Build
+
+```bash
+# Build all packages
+npm run build
+
+# Build Docker image
+npm run docker:build
+
+# Run with Docker Compose
+docker compose up -d
+```
+
+## Environment Variables
+
+### Database
+- `DATABASE_URL` - PostgreSQL connection string
+
+### Application
+- `NODE_ENV` - `development`, `production`, or `test`
+- `SERVER_HOST` - Host to bind to (default: 0.0.0.0)
+- `SERVER_PORT` - Port to listen on (default: 3000)
+- `WS_PATH` - WebSocket endpoint path (default: /ws)
+
+### Resource Profile
+- `RESOURCE_PROFILE` - `auto`, `low`, `standard`, or `high` (default: auto)
+  - **low** (1 vCPU / 1 GB): 15 Hz tick, 12 players/room, 2 rooms max
+  - **standard** (2 vCPU / 2 GB): 20 Hz tick, 20 players/room, 6 rooms max
+  - **high** (4 vCPU / 8 GB): 20 Hz tick, 30 players/room, 12 rooms max
+  - **auto**: Detects based on available resources
+
+### Game Settings (Optional Overrides)
+- `TICK_HZ` - Game simulation tick rate (default depends on profile)
+- `ROOM_CAPACITY` - Max players per room
+- `MAX_ROOMS` - Maximum concurrent rooms
+- `BOT_ENABLE` - Enable bot players (default: true)
+- `BOT_MIN_PER_ROOM` - Minimum bots when below player threshold
+- `ARENA_WIDTH` / `ARENA_HEIGHT` - Arena dimensions in pixels
+- `BOOST_CONSUMPTION` - Mass consumed per tick while boosting
+- `BOOST_MIN_LENGTH` - Minimum snake length to boost
+
+### Revival & Rewards
+- `REVIVAL_PROTECTION_DURATION` - Seconds of invulnerability after revive (default: 3)
+- `REVIVAL_RESTORE_PERCENT` - Percentage of mass restored (0-100, default: 50)
+- `REVIVAL_MAX_PER_RUN` - Maximum revives per game (default: 1)
+- `REVIVAL_CLAIM_EXPIRY` - Seconds before revive claim expires (default: 300)
+
+### Admin
+- `ADMIN_BOOTSTRAP_EMAIL` - Initial admin email
+- `ADMIN_BOOTSTRAP_PASSWORD` - Initial admin password
+- `ADMIN_RATE_LIMIT_ATTEMPTS` - Max login attempts
+- `ADMIN_RATE_LIMIT_WINDOW` - Rate limit window in seconds
+
+### Advertising
+- `AD_ENABLE` - Enable ads (default: false)
+- `AD_FREQUENCY_CAP_DAILY` - Max ads per player per day
+- `AD_MONETAG_SCRIPT_URL` - Monetag SDK script URL (if using)
+
+### Logging & Metrics
+- `LOG_LEVEL` - `trace`, `debug`, `info`, `warn`, `error`, `fatal` (default: info)
+- `METRICS_SAMPLE_INTERVAL` - Metric collection interval in seconds
+- `EVENT_RETENTION_DAYS` - How long to keep event data
+
+## Deployment with Dokploy
+
+Dokploy provides a simple way to deploy on your own infrastructure.
+
+### Setup
+
+1. **Create Dokploy Instance** on your VPS (see https://dokploy.com/docs/core/getting-started)
+
+2. **Add Repository**
+   - In Dokploy dashboard: Applications > Create
+   - Select Docker Compose
+   - Connect your GitHub repository
+
+3. **Configure Compose**
+   - Select `compose.yaml` file
+
+4. **Set Environment Variables**
+   - Copy values from `.env.example`
+   - Set `ADMIN_BOOTSTRAP_PASSWORD` to a secure value
+   - Configure `RESOURCE_PROFILE` based on your VPS specs
+
+5. **Configure Domain**
+   - Add your domain in Dokploy
+   - Dokploy automatically handles HTTPS via Traefik
+
+6. **Deploy**
+   - Click Deploy
+   - Dokploy builds the image, starts services, and applies migrations automatically
+
+### Scaling for 1 GB RAM
+
+If running on 1 GB RAM:
+
+1. Set `RESOURCE_PROFILE=low`
+2. Add 1-2 GB swap to your server:
+   ```bash
+   sudo fallocate -l 2G /swapfile
+   sudo chmod 600 /swapfile
+   sudo mkswap /swapfile
+   sudo swapon /swapfile
+   ```
+3. Monitor memory with `free -h` and `docker stats`
+
+### Backup & Restore
+
+**Backup PostgreSQL:**
+```bash
+docker compose exec postgres pg_dump -U postgres snake_game > backup.sql
+```
+
+**Restore:**
+```bash
+docker compose exec -T postgres psql -U postgres snake_game < backup.sql
+```
+
+## Admin Panel
+
+Access the admin panel at `/admin` (after deployment).
+
+### Authentication
+- Bootstrap admin is created on first startup with `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD`
+- Login required for all admin pages
+- Separate permissions: `view_metrics` and `edit_settings`
+
+### Pages
+
+- **Dashboard**: Real-time player count, peak concurrent, retention cohorts
+- **Rooms**: Inspect, close, adjust capacity
+- **Players**: Kick players, view moderation history
+- **Gameplay**: Configure tick rate, room size, boost, revival settings
+- **Advertising**: Manage Monetag configuration (if available)
+- **Analytics**: Charts, CSV export, date filtering
+- **Audit Log**: Track all configuration changes
+
+## Advertising (Monetag)
+
+**Important**: Rewarded ads are documented by Monetag only for Telegram Mini Apps. Standard websites do not have an officially documented verification flow.
+
+Currently:
+- Rewarded revival is **disabled** in production
+- Non-rewarded ad formats (banners, popunders) can still be configured
+- The Advertising admin page allows safe configuration without code injection
+
+To enable when Monetag adds website support:
+1. Paste script URL in admin panel
+2. Revive UI will update
+3. Admin page will show verified status
+
+## Testing
+
+### Unit Tests
+```bash
+npm test
+```
+
+### Run Locally with Docker
+```bash
+docker compose up --build
+```
+
+### Health Checks
+```bash
+curl http://localhost:3000/healthz  # Should return {"status":"ok"}
+curl http://localhost:3000/readyz   # Should return ready status
+```
+
+## Architecture
+
+### Technology Stack
+- **Frontend**: React 18 + Vite, Canvas 2D, TypeScript
+- **Backend**: Node.js LTS, Fastify, ws (WebSocket)
+- **Database**: PostgreSQL 16, async connection pool
+- **Deployment**: Docker, Docker Compose, Dokploy
+
+### Performance Optimizations
+- **Binary codec** for compact game state transmission (reduces bandwidth ~70%)
+- **Spatial grid** for O(1) collision detection
+- **Delta updates**: Only send changed data
+- **Input throttling**: Max 20 inputs/sec per client
+- **Aggregation**: Game events aggregated to daily summaries, never per-tick
+
+### Game Rules
+- **Speed**: 200 px/sec base movement
+- **Boost**: Consumes 1 mass/tick, requires min length 4
+- **Collision**: Head-to-head (higher mass wins), head-to-body (death)
+- **Food**: Drop on death, collected by head contact
+- **Spawn Protection**: 3 seconds, cannot damage/collect food
+- **Max Snake Length**: 250-600 segments depending on profile
+
+## Troubleshooting
+
+### Database Connection Error
+```
+ERROR: connect ECONNREFUSED 127.0.0.1:5432
+```
+- Ensure `postgres` service is running: `docker compose ps`
+- Check `DATABASE_URL` in `.env`
+- Wait a few seconds for PostgreSQL to start
+
+### Memory Usage High
+- Check resource profile: `docker compose logs app | grep "profile"`
+- Monitor: `docker stats snake-game-app`
+- If >90% utilization, increase `NODE_HEAP_MB` or add swap
+
+### WebSocket Connection Fails
+- Check browser console for connection URL
+- Ensure `/ws` path matches `WS_PATH` env var
+- Verify domain routing (Dokploy) or proxy headers
+
+### Admin Login Not Working
+- Bootstrap happens on **first startup only**
+- Reset by deleting database volume: `docker compose down -v`
+- Or use Dokploy to view initial credentials
+
+## Support & Docs
+
+- [Dokploy Documentation](https://dokploy.com)
+- [Fastify Documentation](https://www.fastify.io)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs)
+
+## License
+
+MIT
+
+---
+
+## Español
+
+### Inicio Rápido
+
+```bash
+# Instalar dependencias
+npm install
+
+# Copiar configuración
+cp .env.example .env
+
+# Iniciar con Docker Compose
+docker compose up
+
+# En otra terminal, iniciar desarrollo
+npm run dev
+```
+
+### Despliegue con Dokploy
+
+1. Crear instancia de Dokploy en tu VPS
+2. Conectar repositorio
+3. Seleccionar `compose.yaml`
+4. Configurar variables de entorno
+5. Mapear dominio (https automático)
+6. Deploy
+
+### Panel Admin
+
+Accede en `/admin` después del despliegue.
+
+**Autenticación**: Email y contraseña configurados en `ADMIN_BOOTSTRAP_EMAIL` y `ADMIN_BOOTSTRAP_PASSWORD`.
+
+### Anuncios (Monetag)
+
+Actualmente desactivados para sitios web estándar. El panel de admin permite configuración segura.
+
+### Solución de Problemas
+
+**Error de conexión a BD**:
+- Verifica que `postgres` esté corriendo
+- Espera unos segundos a que PostgreSQL inicie
+
+**Uso de memoria alto**:
+- Aumenta `NODE_HEAP_MB`
+- O configura más swap en el servidor

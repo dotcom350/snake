@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.dokploy.com)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Initial project setup: monorepo structure, core game engine, React frontend, Docker config *)"
+    ]
+  }
+}
