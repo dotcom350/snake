@@ -1,5 +1,5 @@
 import type { RootFile } from '@snake/shared/site-config';
-import { h, card, field, toggle, numberInput } from '../ui';
+import { h, card, field, toggle, numberInput, toast } from '../ui';
 import { t } from '../i18n';
 import { settingsPage } from './common';
 
@@ -53,6 +53,23 @@ export async function render(root: HTMLElement): Promise<void> {
       changed();
       redraw();
     });
+    const tgZone = h('input', { class: 'input mono', inputmode: 'numeric', maxlength: 12, placeholder: '1234567' });
+    tgZone.value = ads.tgZone;
+    tgZone.addEventListener('input', () => set('tgZone', tgZone.value.replace(/\D/g, '')));
+    const postback = `${location.origin}/api/monetag/postback?secret=${ads.postbackSecret}&ymid={ymid}&event={reward_event_type}&price={estimated_price}`;
+    const postbackInput = h('input', { class: 'input mono', readonly: true });
+    postbackInput.value = postback;
+    const copyBtn = h('button', { type: 'button', class: 'btn btn-ghost btn-sm' }, t('copy'));
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(postback);
+      } catch {
+        postbackInput.select();
+        document.execCommand('copy');
+      }
+      toast(t('copied'));
+    });
+
     const testLink = h('a', { class: 'btn btn-ghost', href: `/${document.documentElement.lang === 'es' ? 'es/' : ''}?adtest=1`, target: '_blank', rel: 'noopener' }, `🧪 ${t('testAds')}`);
 
     return [
@@ -86,6 +103,24 @@ export async function render(root: HTMLElement): Promise<void> {
           field(t('reviveMax'), num('reviveMax', 0)),
           h('p', { class: 'muted small' }, t('reviveNote'))
         )
+      ),
+      card(
+        t('tgTitle'),
+        h('p', null, t('tgIntro')),
+        h('p', { class: 'notice' }, t('tgSteps')),
+        h(
+          'div',
+          { class: 'row2' },
+          field(t('tgZone'), tgZone),
+          h(
+            'div',
+            null,
+            h('label', { class: 'switch-row' }, toggle(ads.tgVerify, (v) => set('tgVerify', v)), t('tgVerify')),
+            h('label', { class: 'switch-row' }, toggle(ads.tgHideWebAds, (v) => set('tgHideWebAds', v)), t('tgHideWebAds'))
+          )
+        ),
+        field(t('postbackUrl'), h('div', { class: 'row nowrap' }, postbackInput, copyBtn)),
+        h('p', { class: 'muted small' }, t('postbackHelp'))
       ),
       h(
         'div',

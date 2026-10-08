@@ -12,7 +12,7 @@ import { registerRoutes } from './api/routes.js';
 import { registerPages } from './pages.js';
 import { registerAdminRoutes } from './admin/routes.js';
 import { ensureBootstrapAdmin } from './admin/auth.js';
-import { loadSettings } from './settings.js';
+import { loadSettings, ensureGeneratedSettings } from './settings.js';
 import { stats } from './stats.js';
 import { mkdirSync } from 'fs';
 
@@ -24,6 +24,7 @@ async function main() {
 
   await initDatabase();
   await loadSettings();
+  await ensureGeneratedSettings();
   await ensureBootstrapAdmin();
   await stats.init();
 

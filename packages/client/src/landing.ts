@@ -3,6 +3,7 @@ import { isValidNickname, normalizeNickname } from '@snake/shared/protocol';
 import { storage } from './storage';
 import { siteConfig } from './site';
 import { loadPrefs, savePrefs } from './prefs';
+import { isTelegram, loadTelegram } from './telegram';
 
 type Locale = 'en' | 'es';
 
@@ -11,7 +12,33 @@ const locale: Locale = document.documentElement.lang === 'es' ? 'es' : 'en';
 const stored = storage.get('lang');
 if (!stored && locale === 'en' && location.pathname === '/' && !location.search.includes('lang=en')) {
   const prefersSpanish = (navigator.languages ?? [navigator.language]).some((l) => /^es\b/i.test(l));
-  if (prefersSpanish) location.replace('/es/');
+  // Keep the hash: Telegram passes the Mini App launch data there.
+  if (prefersSpanish) location.replace(`/es/${location.search}${location.hash}`);
+}
+
+const inTelegram = isTelegram();
+if (inTelegram) {
+  document.documentElement.classList.add('tg');
+  void loadTelegram().then((app) => {
+    if (!app) return;
+    app.ready();
+    app.expand();
+    app.setHeaderColor?.('#070a14');
+    app.setBackgroundColor?.('#070a14');
+    app.setBottomBarColor?.('#070a14');
+    // Stops the "swipe down to close" gesture from fighting with the joystick.
+    app.disableVerticalSwipes?.();
+    const user = app.initDataUnsafe.user;
+    if (!storage.get('lang') && locale === 'en' && location.pathname === '/' && /^es/i.test(user?.language_code ?? '')) {
+      location.replace(`/es/${location.search}${location.hash}`);
+      return;
+    }
+    const input = document.getElementById('nickname') as HTMLInputElement | null;
+    if (input && !input.value) {
+      const name = normalizeNickname((user?.first_name || user?.username || '').replace(/[^\p{L}\p{N} _.-]/gu, ''));
+      if (isValidNickname(name)) input.value = name;
+    }
+  });
 }
 
 for (const link of document.querySelectorAll<HTMLAnchorElement>('a[data-lang]')) {

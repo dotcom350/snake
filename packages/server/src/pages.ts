@@ -35,7 +35,7 @@ function publicCsp(nonce: string, adsOn: boolean): string {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'self'",
+    "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",
   ].join('; ');
 }
 
@@ -112,6 +112,8 @@ export async function registerPages(fastify: FastifyInstance, publicDir: string)
       if (s.ads.enabled && s.ads.landingCode) stats.inc('ad_impression', 'landing');
       const nonce = randomBytes(16).toString('base64');
       reply.header('Content-Security-Policy', publicCsp(nonce, s.ads.enabled));
+      // X-Frame-Options can't list Telegram; the CSP frame-ancestors above replaces it.
+      reply.removeHeader('X-Frame-Options');
       return send(request, reply, html.replaceAll('<script', `<script nonce="${nonce}"`));
     });
   }

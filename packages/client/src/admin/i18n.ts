@@ -337,6 +337,18 @@ const en = {
   addFile: 'Add file',
   testAds: 'Test ad spaces',
   testAdsHelp: 'Opens the site with ?adtest=1: empty spaces show a dashed box so you can see where each ad appears.',
+  tgTitle: 'Telegram Mini App',
+  tgIntro: 'The game works as a Telegram Mini App with the same URL. Inside Telegram it runs full screen, uses Telegram vibration, the back button and the user\'s Telegram name.',
+  tgSteps: '1) In @BotFather: /newbot (or pick your bot) → Bot Settings → Configure Mini App → enable it and set the URL to your site (HTTPS). 2) Optional: Menu Button → same URL. 3) In Monetag create a Telegram Mini App site and a Rewarded Interstitial zone, paste its zone ID below and set the postback URL.',
+  tgZone: 'Monetag zone ID for Telegram (Rewarded Interstitial)',
+  tgVerify: 'Require Monetag postback before reviving (most secure)',
+  tgHideWebAds: 'Hide the web ad codes inside Telegram',
+  postbackUrl: 'Postback URL to paste in Monetag (Telegram zone)',
+  postbackHelp: 'If the macro names in your Monetag panel differ, keep the parameter names (ymid, event, price) and change only the {macros}.',
+  copy: 'Copy',
+  copied: 'Copied',
+  platform: 'Platform (games)',
+  postbackRevenue: 'Postback (Telegram)',
 };
 
 const es: typeof en = {
@@ -678,6 +690,18 @@ const es: typeof en = {
   addFile: 'Añadir archivo',
   testAds: 'Probar espacios de anuncios',
   testAdsHelp: 'Abre la web con ?adtest=1: los espacios vacíos muestran un recuadro para que veas dónde sale cada anuncio.',
+  tgTitle: 'Mini App de Telegram',
+  tgIntro: 'El juego funciona como Mini App de Telegram con la misma URL. Dentro de Telegram va a pantalla completa, usa la vibración y el botón atrás de Telegram y el nombre de Telegram del usuario.',
+  tgSteps: '1) En @BotFather: /newbot (o elige tu bot) → Bot Settings → Configure Mini App → actívala y pon la URL de tu sitio (HTTPS). 2) Opcional: Menu Button → la misma URL. 3) En Monetag crea un sitio de tipo Telegram Mini App y una zona Rewarded Interstitial, pega abajo su ID de zona y configura la URL de postback.',
+  tgZone: 'ID de zona de Monetag para Telegram (Rewarded Interstitial)',
+  tgVerify: 'Exigir el postback de Monetag antes de revivir (lo más seguro)',
+  tgHideWebAds: 'Ocultar los códigos de anuncios web dentro de Telegram',
+  postbackUrl: 'URL de postback para pegar en Monetag (zona de Telegram)',
+  postbackHelp: 'Si en tu panel de Monetag las macros se llaman distinto, deja los nombres de parámetro (ymid, event, price) y cambia solo las {macros}.',
+  copy: 'Copiar',
+  copied: 'Copiado',
+  platform: 'Plataforma (partidas)',
+  postbackRevenue: 'Postback (Telegram)',
 };
 
 export type Key = keyof typeof en;

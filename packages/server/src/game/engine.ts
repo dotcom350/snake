@@ -8,7 +8,6 @@ import { gameConfig, enabledSkinIds, settings } from '../settings.js';
 const logger = createChildLogger('game');
 
 const TURN_RATE = 4.2;
-const MIN_BOOST_MASS = 14;
 const POINT_SPACING_GUESS = 9;
 // Bots use player-like nicknames so rooms feel alive.
 const BOT_NAMES = [
@@ -317,7 +316,7 @@ export class Room {
       const diff = normAngle(s.targetAngle - s.angle);
       s.angle = normAngle(s.angle + Math.max(-turn, Math.min(turn, diff)));
 
-      s.boosting = s.wantsBoost && s.mass > MIN_BOOST_MASS;
+      s.boosting = s.wantsBoost && s.mass > Math.max(4, g.startMass * 0.4);
       const speed = s.boosting ? g.boostSpeed : g.speed;
       const head = s.points[0];
       const nx = head.x + Math.cos(s.angle) * speed * dt;

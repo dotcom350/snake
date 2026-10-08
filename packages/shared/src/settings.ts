@@ -119,6 +119,10 @@ export const AdsSchema: z.ZodType<AdSettings> = z.object({
       })
     )
     .max(20),
+  tgZone: z.string().trim().regex(/^\d{0,12}$/),
+  tgVerify: z.boolean(),
+  tgHideWebAds: z.boolean(),
+  postbackSecret: z.string().regex(/^[A-Za-z0-9_-]{0,64}$/),
   adsTxt: z.string().max(20000),
 });
 

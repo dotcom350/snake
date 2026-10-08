@@ -13,6 +13,7 @@ export const JoinMessageSchema = z.object({
   skin: z.number().int().min(0).max(255).default(0),
   d: z.enum(['m', 'd']).default('d'),
   l: z.enum(['en', 'es']).default('en'),
+  p: z.enum(['web', 'tg']).default('web'),
 });
 
 export const ReviveClaimSchema = z.object({

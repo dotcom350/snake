@@ -1,4 +1,5 @@
 import type { IncomingMessage, Server } from 'http';
+import { randomBytes } from 'crypto';
 import type { Duplex } from 'stream';
 import { WebSocketServer, type WebSocket, type RawData } from 'ws';
 import {
@@ -26,6 +27,10 @@ const META_INTERVAL_MS = 1000;
 const HEARTBEAT_MS = 30_000;
 
 interface PendingRevive {
+  /** Sent to Monetag as ymid so its postback can be matched to this death. */
+  id: string;
+  /** Set when Monetag's server postback confirms the rewarded ad was watched. */
+  verified: boolean;
   mass: number;
   deathAt: number;
   skin: number;
@@ -57,6 +62,7 @@ export class GameSocketServer {
   });
   private readonly clients = new Set<Client>();
   private readonly bySnake = new Map<string, Client>();
+  private readonly pendingById = new Map<string, Client>();
   private heartbeat: ReturnType<typeof setInterval> | null = null;
   private readonly viewRadius = config.resourceConfig.profile === 'low' ? 1000 : 1300;
 
@@ -156,7 +162,7 @@ export class GameSocketServer {
     }
 
     if (msg.type === 'join') this.onJoin(client, msg);
-    else if (msg.type === 'revive') this.onRevive(client);
+    else if (msg.type === 'revive') this.onRevive(client, (msg as { via?: unknown }).via === 'tma');
   }
 
   /**
@@ -164,18 +170,38 @@ export class GameSocketServer {
    * so it enforces the rules it can: revive must be enabled, the player must have just died,
    * the ad countdown must have elapsed and the per-game limit must not be exceeded.
    */
-  private onRevive(client: Client): void {
+  /** Called from Monetag's postback (Telegram rewarded ads). Returns true when it matched a death. */
+  confirmRevivePostback(id: string): boolean {
+    const client = this.pendingById.get(id);
+    if (!client?.pendingRevive || client.pendingRevive.id !== id) return false;
+    client.pendingRevive.verified = true;
+    return true;
+  }
+
+  private setPending(client: Client, pending: PendingRevive | null): void {
+    if (client.pendingRevive) this.pendingById.delete(client.pendingRevive.id);
+    client.pendingRevive = pending;
+    if (pending) this.pendingById.set(pending.id, client);
+  }
+
+  private onRevive(client: Client, viaTelegramAd: boolean): void {
     const pending = client.pendingRevive;
     const ads = settings().ads;
     if (!pending || !ads.reviveEnabled || !client.room || client.snakeId) return;
     const now = Date.now();
     const waited = now - pending.deathAt;
-    if (waited < ads.reviveSeconds * 1000 - 1500 || waited > 5 * 60_000) return;
+    if (waited > 5 * 60_000) return;
+    if (viaTelegramAd && ads.tgZone) {
+      // Monetag's SDK resolved on the client; optionally also require its server postback.
+      if (ads.tgVerify && !pending.verified) return;
+    } else if (waited < ads.reviveSeconds * 1000 - 1500) {
+      return;
+    }
     if (client.revivesUsed >= ads.reviveMax) return;
     const room = this.engine.getRoom(client.room.id);
     if (!room) return;
 
-    client.pendingRevive = null;
+    this.setPending(client, null);
     client.revivesUsed++;
     const snake = room.revivePlayer(client.sessionId, client.nickname, pending.skin, pending.device, pending.lang, pending.mass * (ads.revivePercent / 100));
     client.snakeId = snake.id;
@@ -198,10 +224,11 @@ export class GameSocketServer {
     room ??= this.engine.findRoom();
     if (!room) return this.sendError(client, 'SERVER_FULL');
 
-    const { skin: wanted, d: device, l: lang } = parsed.data;
+    const { skin: wanted, d: device, l: lang, p: platform } = parsed.data;
+    stats.inc('platform', platform);
     const skin = enabledSkinIds().includes(wanted) ? wanted : enabledSkinIds()[0];
     const snake = room.addPlayer(parsed.data.sessionId, nickname, skin, device, lang);
-    client.pendingRevive = null;
+    this.setPending(client, null);
     client.revivesUsed = 0;
     stats.inc('game_start', device);
     stats.inc('game_lang', lang);
@@ -224,6 +251,7 @@ export class GameSocketServer {
   }
 
   private onClose(client: Client): void {
+    this.setPending(client, null);
     if (client.room && client.snakeId) {
       const snake = client.room.removeSnake(client.snakeId);
       this.bySnake.delete(`${client.room.id}:${client.snakeId}`);
@@ -265,9 +293,13 @@ export class GameSocketServer {
         client.snakeId = 0;
         const ads = settings().ads;
         const canRevive = ads.reviveEnabled && client.revivesUsed < ads.reviveMax;
-        client.pendingRevive = canRevive
-          ? { mass: d.snake.mass, deathAt: Date.now(), skin: d.snake.skin, device: d.snake.device, lang: d.snake.lang }
-          : null;
+        const reviveId = randomBytes(9).toString('base64url');
+        this.setPending(
+          client,
+          canRevive
+            ? { id: reviveId, verified: false, mass: d.snake.mass, deathAt: Date.now(), skin: d.snake.skin, device: d.snake.device, lang: d.snake.lang }
+            : null
+        );
         this.send(client, {
           type: 'died',
           score: d.score,
@@ -275,6 +307,7 @@ export class GameSocketServer {
           reason: d.reason,
           revive: canRevive,
           reviveSeconds: ads.reviveSeconds,
+          reviveId: canRevive ? reviveId : undefined,
         });
       }
     }

@@ -9,6 +9,7 @@ import { createSettingsPanel } from './settings-panel';
 import { storage, sessionId } from '../storage';
 import { siteConfig, injectHtml } from '../site';
 import { loadPrefs, savePrefs } from '../prefs';
+import { telegram, tgAtLeast, loadMonetag, type MonetagShow } from '../telegram';
 
 export type ExitReason = 'menu' | 'connect' | 'full' | 'nickname';
 
@@ -127,9 +128,29 @@ export function startGame(opts: StartOptions): void {
   document.body.classList.add('in-game');
   applyPrefs();
 
-  if (isTouch && document.documentElement.requestFullscreen) {
+  const tg = telegram();
+  const onTgBack = () => teardown('menu');
+  if (tg) {
+    root.classList.add('in-telegram');
+    tg.expand();
+    if (tgAtLeast(tg, '8.0')) {
+      try {
+        tg.requestFullscreen?.();
+      } catch {
+        // Older clients: expanded is good enough.
+      }
+    }
+    tg.disableVerticalSwipes?.();
+    tg.enableClosingConfirmation?.();
+    tg.BackButton.onClick(onTgBack);
+    tg.BackButton.show();
+  } else if (isTouch && document.documentElement.requestFullscreen) {
     document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => undefined);
   }
+
+  // Monetag's Telegram SDK (rewarded ads) is only used inside Telegram.
+  let monetag: MonetagShow | null = null;
+  if (tg && cfg.ads.tgZone) void loadMonetag(cfg.ads.tgZone).then((fn) => (monetag = fn));
 
   const sid = sessionId();
   const names = new Map<number, string>();
@@ -157,6 +178,12 @@ export function startGame(opts: StartOptions): void {
   let foodMap = '';
   let leader: [number, number] | null = null;
   const vibrate = (ms: number) => {
+    const haptic = telegram()?.HapticFeedback;
+    if (haptic) {
+      if (ms >= 100) haptic.notificationOccurred('error');
+      else haptic.impactOccurred(ms >= 30 ? 'medium' : 'light');
+      return;
+    }
     if (isTouch) navigator.vibrate?.(ms);
   };
 
@@ -238,6 +265,34 @@ export function startGame(opts: StartOptions): void {
     tickRevive();
     reviveTimer = window.setInterval(tickRevive, 250);
   };
+  /** Telegram: Monetag rewarded interstitial; the server may also wait for Monetag's postback. */
+  const reviveWithTelegramAd = async (reviveId: string) => {
+    if (!monetag) return startRevive();
+    hidePanel();
+    showStatus(t('reviving'));
+    try {
+      await monetag({ ymid: reviveId });
+    } catch {
+      showStatus(null);
+      showToast(t('noAd'));
+      if (lastDeath) showPanel(lastDeath.title, lastDeath.text, t('playAgain'), playAgain, lastDeath.stats);
+      return;
+    }
+    // Retry for a while in case the server is waiting for the postback.
+    let tries = 0;
+    const attempt = () => {
+      if (alive || closed) return;
+      if (tries++ >= 10) {
+        showStatus(null);
+        if (lastDeath) showPanel(lastDeath.title, t('reviveFailed'), t('playAgain'), playAgain, lastDeath.stats);
+        return;
+      }
+      net.revive('tma');
+      window.setTimeout(attempt, 1500);
+    };
+    attempt();
+  };
+
   const cancelRevive = () => {
     closeRevive();
     if (lastDeath) showPanel(lastDeath.title, lastDeath.text, t('playAgain'), playAgain, lastDeath.stats);
@@ -248,6 +303,7 @@ export function startGame(opts: StartOptions): void {
 
   /** Builds a labelled ad box; in test mode (?adtest=1) empty slots show a placeholder. */
   const adBox = (code: string, slotName: 'death' | 'revive' | 'play', size: string): HTMLElement | null => {
+    if (tg && cfg.ads.tgHideWebAds && !adTest) return null;
     if (!code && !adTest) return null;
     const box = el('div', `ad-box ad-${slotName}`);
     box.append(el('span', 'ad-label', t('ad')));
@@ -291,7 +347,14 @@ export function startGame(opts: StartOptions): void {
     window.removeEventListener('keydown', onKey);
     root.remove();
     document.body.classList.remove('in-game');
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined);
+    if (tg) {
+      tg.BackButton.offClick(onTgBack);
+      tg.BackButton.hide();
+      tg.disableClosingConfirmation?.();
+      if (tg.isFullscreen) tg.exitFullscreen?.();
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => undefined);
+    }
     opts.onExit(reason);
   };
 
@@ -300,6 +363,10 @@ export function startGame(opts: StartOptions): void {
     const ads = cfg.ads;
     const plays = Number(storage.get('plays') ?? 0);
     storage.set('plays', String(plays + 1));
+    if (monetag && plays % Math.max(1, ads.playEvery) === 0) {
+      monetag().catch(() => undefined).finally(go);
+      return;
+    }
     const active = (ads.enabled && ads.playCode) || adTest;
     if (!active || plays % Math.max(1, ads.playEvery) !== 0) return go();
     const box = adBox(ads.playCode, 'play', '728×90 / 300×250');
@@ -338,7 +405,7 @@ export function startGame(opts: StartOptions): void {
     prev = cur = null;
     kills = 0;
     killsLine.textContent = '';
-    net.join(opts.nickname, sid, prefs.skin, isTouch ? 'm' : 'd', opts.locale);
+    net.join(opts.nickname, sid, prefs.skin, isTouch ? 'm' : 'd', opts.locale, tg ? 'tg' : 'web');
   };
 
   const playAgain = () => preroll(join);
@@ -403,7 +470,8 @@ export function startGame(opts: StartOptions): void {
             reviveBtn.textContent = `▶ ${t('revive', { p: Math.round(cfg.ads.revivePercent) })}`;
             reviveBtn.onclick = () => {
               sound.click();
-              startRevive();
+              if (monetag) void reviveWithTelegramAd(msg.reviveId ?? '');
+              else startRevive();
             };
           }
           showDeathAd();

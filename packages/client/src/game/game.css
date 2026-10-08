@@ -712,3 +712,17 @@
   opacity: 0.55;
   filter: grayscale(0.4);
 }
+
+/* Telegram Mini App fullscreen: keep the HUD below Telegram's own top buttons. */
+.in-telegram {
+  --tg-top: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
+}
+
+.in-telegram .hud-icons,
+.in-telegram .hud-board {
+  top: max(var(--pad), calc(var(--tg-top) + 8px));
+}
+
+.in-telegram .hud-score {
+  bottom: max(var(--pad), calc(var(--tg-safe-area-inset-bottom, 0px) + 10px));
+}

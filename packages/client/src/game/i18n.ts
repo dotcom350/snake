@@ -48,6 +48,7 @@ const en = {
   adSkipIn: 'You can play in {s}s',
   adPlay: 'Play ▶',
   adPreview: 'Ad space · {slot}',
+  noAd: 'No ad available right now. Try again in a moment.',
 };
 
 const es: typeof en = {
@@ -100,6 +101,7 @@ const es: typeof en = {
   adSkipIn: 'Puedes jugar en {s} s',
   adPlay: 'Jugar ▶',
   adPreview: 'Espacio de anuncio · {slot}',
+  noAd: 'Ahora no hay anuncios disponibles. Inténtalo en un momento.',
 };
 
 export type GameStringKey = keyof typeof en;

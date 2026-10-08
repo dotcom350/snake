@@ -91,7 +91,7 @@ export class Renderer {
     private readonly theme: Theme,
     public options: RenderOptions
   ) {
-    this.ctx = canvas.getContext('2d', { alpha: false })!;
+    this.ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
     this.foodSprites = theme.foodColors.map((c) => makeFoodSprite(c, theme.foodGlow, false));
     this.richSprites = theme.foodColors.map((c) => makeFoodSprite(c, theme.foodGlow, true));
     this.arena = createArenaAssets(this.ctx, theme);
@@ -109,7 +109,10 @@ export class Renderer {
   }
 
   private qualityDpr(): number {
-    return this.options.quality === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+    if (this.options.quality === 'low') return 1;
+    // Phones have very dense screens; 1.5× looks sharp and costs far less GPU than 3×.
+    const cap = matchMedia('(pointer: coarse)').matches ? 1.5 : 2;
+    return Math.min(window.devicePixelRatio || 1, cap);
   }
 
   setOptions(options: RenderOptions): void {

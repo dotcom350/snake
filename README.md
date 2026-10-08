@@ -184,6 +184,16 @@ Paste the tags from your ad network in **Admin → Ads**. Pages are served with 
 
 Rewarded ads with server-verified rewards are only documented by Monetag for Telegram Mini Apps, so the game does not offer "watch an ad to revive".
 
+## Telegram Mini App
+
+The same site works as a Telegram Mini App. Telegram's script is only loaded when the page is opened from Telegram.
+
+1. In @BotFather: choose your bot → Bot Settings → Configure Mini App → enable it with your HTTPS site URL (optionally also set the Menu Button to the same URL).
+2. Inside Telegram the game goes full screen, disables the swipe-to-close gesture during play, uses Telegram's back button, haptics, the user's first name as default nickname and their language.
+3. Monetag for Telegram: create a Telegram Mini App site and a Rewarded Interstitial zone in Monetag, enter the zone ID in Admin → Ads → Telegram Mini App and paste the postback URL shown there into Monetag. "Revive" then uses the rewarded ad; with "Require Monetag postback" the server only revives after Monetag confirms the view. Postback revenue appears automatically in Admin → Earnings.
+
+Public pages allow being framed by `*.telegram.org` (needed for Telegram Web/Desktop); the admin panel does not.
+
 ## Testing
 
 ### Unit Tests

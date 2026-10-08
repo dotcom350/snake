@@ -1033,3 +1033,7 @@ main {
   color: #ffd166;
   font-weight: 800;
 }
+
+.tg .topbar {
+  padding-top: max(14px, calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px) + 8px));
+}

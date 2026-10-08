@@ -27,9 +27,9 @@ export type Device = 'm' | 'd';
 export const FOOD_MAP_SIZE = 20;
 
 export type ClientMessage =
-  | { type: 'join'; nickname: string; sessionId: string; skin: number; d: Device; l: 'en' | 'es' }
+  | { type: 'join'; nickname: string; sessionId: string; skin: number; d: Device; l: 'en' | 'es'; p?: 'web' | 'tg' }
   | { type: 'input'; a: number; b: boolean }
-  | { type: 'revive' };
+  | { type: 'revive'; id?: string; via?: 'timer' | 'tma' };
 
 /** [id, nickname] */
 export type MetaPlayer = [number, string];
@@ -49,7 +49,7 @@ export type ServerMessage =
       /** Position of the leader, for the minimap. */
       lead?: [number, number];
     }
-  | { type: 'died'; score: number; killer: string | null; reason: 'snake' | 'wall'; revive: boolean; reviveSeconds: number }
+  | { type: 'died'; score: number; killer: string | null; reason: 'snake' | 'wall'; revive: boolean; reviveSeconds: number; reviveId?: string }
   | { type: 'kill'; name: string }
   | { type: 'error'; code: ErrorCode };
 

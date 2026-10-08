@@ -68,13 +68,13 @@ export class Net {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
   }
 
-  join(nickname: string, sessionId: string, skin: number, d: Device, l: 'en' | 'es'): void {
+  join(nickname: string, sessionId: string, skin: number, d: Device, l: 'en' | 'es', p: 'web' | 'tg' = 'web'): void {
     this.lastAngle = NaN;
-    this.send({ type: 'join', nickname, sessionId, skin, d, l });
+    this.send({ type: 'join', nickname, sessionId, skin, d, l, p });
   }
 
-  revive(): void {
-    this.send({ type: 'revive' });
+  revive(via: 'timer' | 'tma' = 'timer'): void {
+    this.send({ type: 'revive', via });
   }
 
   input(angle: number, boost: boolean, now: number): void {

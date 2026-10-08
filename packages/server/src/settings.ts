@@ -40,6 +40,20 @@ export async function loadSettings(): Promise<void> {
   version++;
 }
 
+/** Makes sure values the server owns (like the postback secret) exist. */
+export async function ensureGeneratedSettings(): Promise<void> {
+  if (current.ads.postbackSecret) return;
+  const { randomBytes } = await import('crypto');
+  const ads = { ...current.ads, postbackSecret: randomBytes(18).toString('base64url') };
+  await query(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES ('settings.ads', $1, (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`,
+    [JSON.stringify(ads)]
+  );
+  current = { ...current, ads };
+  version++;
+}
+
 export function settings(): AllSettings {
   return current;
 }

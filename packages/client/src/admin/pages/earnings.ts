@@ -13,6 +13,7 @@ interface RevenueResponse {
   entries: Array<{ id: number; day: string; amount: number; source: string; note: string }>;
   impressions: Array<{ day: string; n: number }>;
   players: Array<{ day: string; n: number }>;
+  postback: Array<{ day: string; amount: number }>;
   allTime: { total: number };
 }
 
@@ -34,10 +35,12 @@ export async function render(root: HTMLElement): Promise<void> {
   for (const e of r.entries) real.set(e.day, (real.get(e.day) ?? 0) + e.amount);
   const imp = new Map(r.impressions.map((x) => [x.day, x.n]));
   const players = new Map(r.players.map((x) => [x.day, x.n]));
+  const pb = new Map(r.postback.map((x) => [x.day, x.amount]));
+  const pbSeries = days.map((d) => (real.has(d) ? 0 : pb.get(d) ?? 0));
   const realSeries = days.map((d) => real.get(d) ?? 0);
-  const estSeries = days.map((d) => (real.has(d) ? 0 : ((imp.get(d) ?? 0) / 1000) * r.estimatedCpm));
+  const estSeries = days.map((d) => (real.has(d) || pb.has(d) ? 0 : ((imp.get(d) ?? 0) / 1000) * r.estimatedCpm));
   const impSeries = days.map((d) => imp.get(d) ?? 0);
-  const total = realSeries.reduce((a, b) => a + b, 0) + estSeries.reduce((a, b) => a + b, 0);
+  const total = realSeries.reduce((a, b) => a + b, 0) + pbSeries.reduce((a, b) => a + b, 0) + estSeries.reduce((a, b) => a + b, 0);
   const totalReal = realSeries.reduce((a, b) => a + b, 0);
   const totalImp = impSeries.reduce((a, b) => a + b, 0);
   const totalPlayers = days.reduce((a, d) => a + (players.get(d) ?? 0), 0);
@@ -121,7 +124,7 @@ export async function render(root: HTMLElement): Promise<void> {
     h(
       'div',
       { class: 'kpis' },
-      kpi(t('revenue'), money(total), { tone: 'green', sub: `${t('realRevenue')}: ${money(totalReal)}`, spark: sparkline(days.map((_, i) => realSeries[i] + estSeries[i]), '#5ee06a') }),
+      kpi(t('revenue'), money(total), { tone: 'green', sub: `${t('realRevenue')}: ${money(totalReal)}`, spark: sparkline(days.map((_, i) => realSeries[i] + pbSeries[i] + estSeries[i]), '#5ee06a') }),
       kpi(t('adImpressions'), fmtNumber(totalImp, lang), { tone: 'gold', spark: sparkline(impSeries, '#ffd166') }),
       kpi(t('rpm'), money(totalImp ? (total / totalImp) * 1000 : 0), { tone: 'cyan' }),
       kpi(t('arpu'), money(totalPlayers ? total / totalPlayers : 0), { tone: 'violet' }),
@@ -133,6 +136,7 @@ export async function render(root: HTMLElement): Promise<void> {
         days.map((d) => d.slice(5)),
         [
           { name: t('realRevenue'), color: '#5ee06a', values: realSeries, kind: 'bar' },
+          { name: t('postbackRevenue'), color: '#3fa7ff', values: pbSeries, kind: 'bar' },
           { name: t('estimated'), color: '#ffd166', values: estSeries, kind: 'bar' },
         ],
         lang

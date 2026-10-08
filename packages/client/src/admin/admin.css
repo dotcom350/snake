@@ -990,3 +990,12 @@ svg.nav-icon {
   flex: 1;
   margin-bottom: 8px;
 }
+
+.row.nowrap {
+  flex-wrap: nowrap;
+}
+
+.row.nowrap .input {
+  flex: 1;
+  min-width: 0;
+}

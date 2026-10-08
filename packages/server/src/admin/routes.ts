@@ -157,7 +157,7 @@ export async function registerAdminRoutes(
         ),
         query<{ metric: string; key: string; value: string }>(
           `SELECT metric, key, sum(value)::text AS value FROM stats_daily
-           WHERE day >= $1 AND metric IN ('pageview','game_start','game_lang','skin','death','referrer','crawler','ad_impression','device_visit')
+           WHERE day >= $1 AND metric IN ('pageview','game_start','game_lang','skin','death','referrer','crawler','ad_impression','device_visit','platform')
            GROUP BY metric, key ORDER BY sum(value) DESC`,
           [from]
         ),
@@ -260,7 +260,7 @@ export async function registerAdminRoutes(
       const fromDate = new Date(`${today}T00:00:00Z`);
       fromDate.setUTCDate(fromDate.getUTCDate() - (days - 1));
       const from = fromDate.toISOString().slice(0, 10);
-      const [entries, impressions, players, totals] = await Promise.all([
+      const [entries, impressions, players, totals, postback] = await Promise.all([
         query(
           `SELECT id, to_char(day, 'YYYY-MM-DD') AS day, amount::float AS amount, source, note FROM revenue_entries
            WHERE day >= $1 ORDER BY day DESC, id DESC`,
@@ -277,9 +277,14 @@ export async function registerAdminRoutes(
           [from]
         ),
         query(`SELECT coalesce(sum(amount), 0)::float AS total FROM revenue_entries`),
+        query(
+          `SELECT to_char(day, 'YYYY-MM-DD') AS day, (sum(value) / 1000000.0)::float AS amount FROM stats_daily
+           WHERE day >= $1 AND metric = 'ad_revenue_micro' GROUP BY day`,
+          [from]
+        ),
       ]);
       const ads = settings().ads;
-      return { today, from, days, currency: ads.currency, estimatedCpm: ads.estimatedCpm, entries, impressions, players, allTime: totals[0] };
+      return { today, from, days, currency: ads.currency, estimatedCpm: ads.estimatedCpm, entries, impressions, players, postback, allTime: totals[0] };
     });
 
     const RevenueSchema = z.object({

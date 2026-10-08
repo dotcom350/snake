@@ -166,7 +166,8 @@ export async function render(root: HTMLElement): Promise<void> {
       card(t('skinsUsed'), breakdown(rows('skin', (k) => skins[Number(k)]?.name ?? `#${k}`), lang, t('noData'), '#5ee06a')),
       card(t('adsBySlot'), breakdown(rows('ad_impression'), lang, t('noData'), '#ffd166')),
       card(t('referrers'), breakdown(rows('referrer', (k) => (k === '(direct)' ? t('direct') : k), 15), lang, t('noData'), '#3fa7ff')),
-      card(t('crawlers'), breakdown(rows('crawler', undefined, 15), lang, t('noData'), '#9aa6c7'))
+      card(t('crawlers'), breakdown(rows('crawler', undefined, 15), lang, t('noData'), '#9aa6c7')),
+      card(t('platform'), breakdown(rows('platform', (k) => (k === 'tg' ? 'Telegram' : 'Web')), lang, t('noData'), '#3fa7ff'))
     ),
     h('div', { class: 'grid2' }, card(t('topToday'), topTable(s.topToday)), card(t('topAll'), topTable(s.topAll)))
   );
