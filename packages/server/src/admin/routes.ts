@@ -26,6 +26,24 @@ const AUDIO_TYPES: Record<string, string> = {
   'audio/aac': 'aac',
 };
 
+const IMAGE_TYPES: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+function looksLikeImage(buf: Buffer): boolean {
+  if (buf.length < 12) return false;
+  const ascii = (start: number, len: number) => buf.subarray(start, start + len).toString('latin1');
+  return (
+    (buf[0] === 0x89 && ascii(1, 3) === 'PNG') ||
+    (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) ||
+    (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP') ||
+    ascii(0, 4) === 'GIF8'
+  );
+}
+
 function looksLikeAudio(buf: Buffer): boolean {
   if (buf.length < 12) return false;
   const ascii = (start: number, len: number) => buf.subarray(start, start + len).toString('latin1');
@@ -64,7 +82,7 @@ export async function registerAdminRoutes(
       return payload;
     });
 
-    app.addContentTypeParser(Object.keys(AUDIO_TYPES), { parseAs: 'buffer', bodyLimit: 12 * 1024 * 1024 }, (_req, body, done) =>
+    app.addContentTypeParser([...Object.keys(AUDIO_TYPES), ...Object.keys(IMAGE_TYPES)], { parseAs: 'buffer', bodyLimit: 12 * 1024 * 1024 }, (_req, body, done) =>
       done(null, body)
     );
 
@@ -198,6 +216,32 @@ export async function registerAdminRoutes(
       await saveSection('sound', { ...settings().sound, customMusicUrl: null }, request.admin!.id);
       if (previous?.startsWith('/uploads/music-')) await fs.rm(path.join(uploadsDir, path.basename(previous)), { force: true });
       await audit(request.admin!.id, 'delete_music', 'sound', undefined, request.ip);
+      return { ok: true, settings: settings() };
+    });
+
+    app.post('/api/admin/background', async (request, reply) => {
+      const type = String(request.headers['content-type'] ?? '').split(';')[0].trim();
+      const ext = IMAGE_TYPES[type];
+      const body = request.body as Buffer;
+      if (!ext || !Buffer.isBuffer(body) || body.length > 5 * 1024 * 1024 || !looksLikeImage(body)) {
+        return reply.code(400).send({ error: 'INVALID_IMAGE' });
+      }
+      await fs.mkdir(uploadsDir, { recursive: true });
+      const name = `bg-${randomBytes(8).toString('hex')}.${ext}`;
+      await fs.writeFile(path.join(uploadsDir, name), body);
+      const previous = settings().appearance.bgImageUrl;
+      const result = await saveSection('appearance', { ...settings().appearance, bgImageUrl: `/uploads/${name}` }, request.admin!.id);
+      if (!result.ok) return reply.code(400).send({ error: 'INVALID_INPUT', issues: result.issues });
+      if (previous?.startsWith('/uploads/bg-')) await fs.rm(path.join(uploadsDir, path.basename(previous)), { force: true });
+      await audit(request.admin!.id, 'upload_background', 'appearance', { file: name, bytes: body.length }, request.ip);
+      return { ok: true, settings: settings() };
+    });
+
+    app.delete('/api/admin/background', async (request) => {
+      const previous = settings().appearance.bgImageUrl;
+      await saveSection('appearance', { ...settings().appearance, bgImageUrl: null }, request.admin!.id);
+      if (previous?.startsWith('/uploads/bg-')) await fs.rm(path.join(uploadsDir, path.basename(previous)), { force: true });
+      await audit(request.admin!.id, 'delete_background', 'appearance', undefined, request.ip);
       return { ok: true, settings: settings() };
     });
 

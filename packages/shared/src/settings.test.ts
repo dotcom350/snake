@@ -22,3 +22,16 @@ describe('settings', () => {
     expect('landingAccent' in cfg.appearance).toBe(false);
   });
 });
+
+describe('verification meta tags', () => {
+  it('keeps meta tags and drops anything else', async () => {
+    const { sanitizeMetaTags } = await import('./site-config.js');
+    expect(sanitizeMetaTags('<meta name="monetag" content="92d3efef502a42d1667e5b6899e83cfe">')).toBe(
+      '<meta name="monetag" content="92d3efef502a42d1667e5b6899e83cfe">'
+    );
+    expect(sanitizeMetaTags('<script>alert(1)</script><meta name="google-site-verification" content="abc_123" />')).toBe(
+      '<meta name="google-site-verification" content="abc_123">'
+    );
+    expect(sanitizeMetaTags('<meta name="x" content="a" onload="evil()">')).toBe('');
+  });
+});

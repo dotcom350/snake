@@ -1,7 +1,10 @@
 import { snakeRadius, foodRadius } from '@snake/shared/protocol';
-import type { Appearance, PublicConfig } from '@snake/shared/site-config';
+import type { PublicConfig } from '@snake/shared/site-config';
 import type { JoystickView } from './input';
 import { drawSnake, hexToRgb } from './skins';
+import { createArenaAssets, drawArena, drawVignette, type ArenaAssets } from './background';
+
+export { makeBackgroundTile } from './background';
 
 export interface RenderSnake {
   id: number;
@@ -51,62 +54,10 @@ function makeFoodSprite(color: string, glow: number): HTMLCanvasElement {
   return c;
 }
 
-/** Tile for the arena floor; drawn in world coordinates so it scrolls with the camera. */
-export function makeBackgroundTile(theme: Pick<Appearance, 'background' | 'bgPattern' | 'patternColor' | 'patternOpacity'>): HTMLCanvasElement {
-  const [r, g, b] = hexToRgb(theme.patternColor);
-  const stroke = `rgba(${r},${g},${b},${theme.patternOpacity})`;
-  const c = document.createElement('canvas');
-  const ctx = (w: number, h: number) => {
-    c.width = w;
-    c.height = h;
-    const x = c.getContext('2d')!;
-    x.fillStyle = theme.background;
-    x.fillRect(0, 0, w, h);
-    x.strokeStyle = stroke;
-    x.fillStyle = stroke;
-    x.lineWidth = 2;
-    return x;
-  };
-
-  if (theme.bgPattern === 'hex') {
-    const w = 84;
-    const h = Math.round(w * Math.sqrt(3));
-    const x = ctx(w * 3, h);
-    const rad = w / 2;
-    const hex = (cx: number, cy: number) => {
-      x.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const a = (Math.PI / 3) * i;
-        if (i === 0) x.moveTo(cx + rad * Math.cos(a), cy + rad * Math.sin(a));
-        else x.lineTo(cx + rad * Math.cos(a), cy + rad * Math.sin(a));
-      }
-      x.closePath();
-      x.stroke();
-    };
-    for (const [cx, cy] of [[rad, 0], [rad, h], [rad * 4, h / 2], [rad * 4, -h / 2], [rad * 4, h * 1.5], [rad * 7, 0], [rad * 7, h]]) hex(cx, cy);
-  } else if (theme.bgPattern === 'grid') {
-    const x = ctx(80, 80);
-    x.beginPath();
-    x.moveTo(0, 0.5);
-    x.lineTo(80, 0.5);
-    x.moveTo(0.5, 0);
-    x.lineTo(0.5, 80);
-    x.stroke();
-  } else if (theme.bgPattern === 'dots') {
-    const x = ctx(60, 60);
-    x.beginPath();
-    x.arc(30, 30, 3, 0, Math.PI * 2);
-    x.fill();
-  } else {
-    ctx(8, 8);
-  }
-  return c;
-}
-
 export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly foodSprites: HTMLCanvasElement[];
-  private readonly pattern: CanvasPattern | null;
+  private readonly arena: ArenaAssets;
   private dpr = 1;
   private maxDpr: number;
   width = 0;
@@ -121,7 +72,7 @@ export class Renderer {
   ) {
     this.ctx = canvas.getContext('2d', { alpha: false })!;
     this.foodSprites = theme.foodColors.map((c) => makeFoodSprite(c, theme.foodGlow));
-    this.pattern = this.ctx.createPattern(makeBackgroundTile(theme), 'repeat');
+    this.arena = createArenaAssets(this.ctx, theme);
     this.maxDpr = this.qualityDpr();
     this.resize();
   }
@@ -174,21 +125,17 @@ export class Renderer {
     const viewMinY = f.camY - h / 2 / s - 60;
     const viewMaxY = f.camY + h / 2 / s + 60;
 
-    const ax0 = Math.max(0, viewMinX);
-    const ay0 = Math.max(0, viewMinY);
-    const ax1 = Math.min(f.arenaW, viewMaxX);
-    const ay1 = Math.min(f.arenaH, viewMaxY);
-    if (ax1 > ax0 && ay1 > ay0) {
-      ctx.fillStyle = this.pattern ?? theme.background;
-      ctx.fillRect(ax0, ay0, ax1 - ax0, ay1 - ay0);
-    }
-    ctx.globalAlpha = 0.25;
-    ctx.strokeStyle = theme.border;
-    ctx.lineWidth = 26;
-    ctx.strokeRect(-13, -13, f.arenaW + 26, f.arenaH + 26);
-    ctx.globalAlpha = 1;
-    ctx.lineWidth = 6;
-    ctx.strokeRect(-3, -3, f.arenaW + 6, f.arenaH + 6);
+    drawArena(ctx, theme, this.arena, {
+      arenaW: f.arenaW,
+      arenaH: f.arenaH,
+      minX: viewMinX,
+      minY: viewMinY,
+      maxX: viewMaxX,
+      maxY: viewMaxY,
+      time: f.time,
+      scale: s,
+      quality: this.options.quality,
+    });
 
     const pulse = 1 + Math.sin(f.time / 300) * 0.1;
     const food = f.food;
@@ -231,6 +178,7 @@ export class Renderer {
       }
     }
 
+    drawVignette(ctx, w, h, theme.vignette);
     if (this.options.showMinimap) this.drawMinimap(f);
     if (f.joystick.active) this.drawJoystick(f.joystick);
   }

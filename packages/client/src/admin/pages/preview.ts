@@ -1,15 +1,19 @@
 import type { Appearance, SkinDef } from '@snake/shared/site-config';
-import { makeBackgroundTile } from '../../game/render';
-import { drawSnake } from '../../game/skins';
+import { createArenaAssets, drawArena, drawVignette, type ArenaAssets } from '../../game/background';
+import { drawSnake, swimPath } from '../../game/skins';
 
-/** Small animated arena preview used by the Appearance and Snakes pages. */
+const BG_KEYS: Array<keyof Appearance> = [
+  'background', 'bgPattern', 'patternColor', 'patternOpacity', 'patternScale', 'bgImageUrl', 'bgImageMode', 'bgImageScale',
+];
+
+/** Animated arena preview used by the Appearance and Snakes pages; uses the same drawing code as the game. */
 export function arenaPreview(getTheme: () => Appearance | null, getSkins: () => SkinDef[]): { canvas: HTMLCanvasElement; stop: () => void } {
   const canvas = document.createElement('canvas');
   canvas.className = 'preview';
   let raf = 0;
-  let tileKey = '';
-  let pattern: CanvasPattern | null = null;
-  const food = Array.from({ length: 26 }, () => [Math.random(), Math.random(), Math.random()]);
+  let assetsKey = '';
+  let assets: ArenaAssets | null = null;
+  const food = Array.from({ length: 30 }, () => [Math.random(), Math.random(), Math.random()]);
 
   const frame = (time: number) => {
     raf = requestAnimationFrame(frame);
@@ -19,35 +23,38 @@ export function arenaPreview(getTheme: () => Appearance | null, getSkins: () => 
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     if (!w || !h) return;
-    if (canvas.width !== Math.round(w * dpr)) {
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
     }
     const ctx = canvas.getContext('2d')!;
-    const key = `${theme.background}${theme.bgPattern}${theme.patternColor}${theme.patternOpacity}`;
-    if (key !== tileKey) {
-      tileKey = key;
-      pattern = ctx.createPattern(makeBackgroundTile(theme), 'repeat');
+    const key = BG_KEYS.map((k) => String(theme[k])).join('|');
+    if (key !== assetsKey || !assets) {
+      assetsKey = key;
+      assets = createArenaAssets(ctx, theme);
     }
+
+    // A slowly drifting camera over the arena's left edge so the wall is visible.
+    const zoom = 0.8;
+    const arena = 2400;
+    const camX = 420 + Math.sin(time / 6000) * 60;
+    const camY = 900 + Math.cos(time / 7000) * 60;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = theme.outside;
     ctx.fillRect(0, 0, w, h);
-    const ax = w * 0.12;
-    ctx.fillStyle = pattern ?? theme.background;
-    ctx.fillRect(ax, 0, w - ax, h);
-    ctx.strokeStyle = theme.border;
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(ax, 0);
-    ctx.lineTo(ax, h);
-    ctx.stroke();
+    const ox = w / 2 - camX * zoom;
+    const oy = h / 2 - camY * zoom;
+    ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * ox, dpr * oy);
+    const minX = camX - w / 2 / zoom, maxX = camX + w / 2 / zoom;
+    const minY = camY - h / 2 / zoom, maxY = camY + h / 2 / zoom;
+    drawArena(ctx, theme, assets, { arenaW: arena, arenaH: arena, minX, minY, maxX, maxY, time, scale: zoom, quality: 'high' });
 
     const alphaHex = Math.round((0.35 + theme.foodGlow * 0.5) * 255).toString(16).padStart(2, '0');
     for (const [fx, fy, c] of food) {
       const color = theme.foodColors[Math.floor(c * theme.foodColors.length)] ?? '#ffffff';
-      const x = ax + 20 + fx * (w - ax - 40);
-      const y = 10 + fy * (h - 20);
-      const r = 10;
+      const x = Math.max(30, minX) + fx * (maxX - Math.max(30, minX));
+      const y = minY + fy * (maxY - minY);
+      const r = 12;
       const g = ctx.createRadialGradient(x, y, 0, x, y, r);
       g.addColorStop(0, '#ffffff');
       g.addColorStop(0.2, color);
@@ -58,15 +65,16 @@ export function arenaPreview(getTheme: () => Appearance | null, getSkins: () => 
     }
 
     const skins = getSkins().filter((s) => s.enabled).slice(0, 3);
+    const span = maxX - minX;
     skins.forEach((skin, i) => {
-      const pts: number[] = [];
-      const baseY = (h / (skins.length + 1)) * (i + 1);
-      for (let k = 0; k <= 50; k++) {
-        const tt = k / 50;
-        pts.push(w * 0.85 - tt * w * 0.55, baseY + Math.sin(tt * 7 + time * 0.003 + i) * 14);
-      }
-      drawSnake(ctx, new Float32Array(pts), skin, { radius: 11, time, boosting: false, alpha: 1, quality: 'high' });
+      const baseY = minY + ((maxY - minY) / (skins.length + 1)) * (i + 1);
+      const path = swimPath(minX + span * 0.88, minX + span * 0.35, 18, time + i * 400);
+      for (let k = 1; k < path.length; k += 2) path[k] += baseY;
+      drawSnake(ctx, path, skin, { radius: 13, time, boosting: false, alpha: 1, quality: 'high' });
     });
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawVignette(ctx, w, h, theme.vignette);
   };
   raf = requestAnimationFrame(frame);
   return { canvas, stop: () => cancelAnimationFrame(raf) };

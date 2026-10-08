@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { randomBytes } from 'crypto';
 import { brotliCompressSync, gzipSync, constants as zlib } from 'zlib';
-import { toPublicConfig } from '@snake/shared';
+import { toPublicConfig, sanitizeMetaTags } from '@snake/shared';
 import { config } from './config.js';
 import { settings, settingsVersion } from './settings.js';
 import { stats } from './stats.js';
@@ -85,6 +85,7 @@ export async function registerPages(fastify: FastifyInstance, publicDir: string)
       .join(';');
     const adsOn = s.ads.enabled;
     const head =
+      sanitizeMetaTags(s.ads.verifyTags) +
       `<style>:root{${vars}}</style>` +
       `<script type="application/json" id="site-config">${jsonForHtml(toPublicConfig(s))}</script>` +
       (adsOn && s.ads.headCode ? s.ads.headCode : '');

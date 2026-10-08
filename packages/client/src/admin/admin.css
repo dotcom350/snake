@@ -661,3 +661,68 @@ h3.sub {
     grid-template-columns: 1fr;
   }
 }
+
+.presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.preset:hover {
+  border-color: var(--accent);
+}
+
+.preset i {
+  width: 22px;
+  height: 22px;
+  border: 3px solid;
+  border-radius: 6px;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.range-value {
+  min-width: 34px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.thumb {
+  display: block;
+  max-width: 100%;
+  max-height: 120px;
+  margin: 6px 0 10px;
+  border-radius: 10px;
+}
+
+.toolbar {
+  margin: 12px 0;
+}
+
+.preview {
+  height: 260px;
+}
+
+.skin-canvas {
+  height: 84px;
+}

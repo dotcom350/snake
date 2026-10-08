@@ -1,12 +1,27 @@
-export const SKIN_PATTERNS = ['solid', 'bands', 'stripes', 'gradient', 'rainbow', 'scales', 'spots', 'neon', 'galaxy'] as const;
-export const HEAD_SHAPES = ['round', 'viper', 'cute'] as const;
-export const BG_PATTERNS = ['hex', 'grid', 'dots', 'none'] as const;
+export const SKIN_PATTERNS = [
+  'solid', 'bands', 'stripes', 'gradient', 'rainbow', 'scales', 'spots', 'neon', 'galaxy',
+  'diamonds', 'dots', 'camo', 'fire', 'chrome',
+] as const;
+export const HEAD_SHAPES = ['round', 'viper', 'cute', 'cobra', 'dragon'] as const;
+export const EYE_STYLES = ['normal', 'angry', 'sleepy', 'cyclops', 'googly'] as const;
+export const ACCESSORIES = ['none', 'crown', 'horns', 'hat', 'bow', 'glasses', 'antenna'] as const;
+export const BG_PATTERNS = [
+  'hex', 'grid', 'dots', 'none', 'diamonds', 'triangles', 'circles', 'stars', 'waves', 'bricks', 'scales', 'cross',
+] as const;
+export const BG_GRADIENTS = ['none', 'radial', 'linear'] as const;
+export const PARTICLES = ['none', 'sparkles', 'bubbles', 'snow', 'fireflies', 'embers'] as const;
+export const BG_IMAGE_MODES = ['tile', 'cover'] as const;
 export const MUSIC_STYLES = ['chill', 'arcade', 'off'] as const;
 export const MAX_SKINS = 48;
 
 export type SkinPattern = (typeof SKIN_PATTERNS)[number];
 export type HeadShape = (typeof HEAD_SHAPES)[number];
 export type BgPattern = (typeof BG_PATTERNS)[number];
+export type EyeStyle = (typeof EYE_STYLES)[number];
+export type Accessory = (typeof ACCESSORIES)[number];
+export type BgGradient = (typeof BG_GRADIENTS)[number];
+export type ParticleKind = (typeof PARTICLES)[number];
+export type BgImageMode = (typeof BG_IMAGE_MODES)[number];
 export type MusicStyle = (typeof MUSIC_STYLES)[number];
 
 export interface SkinDef {
@@ -16,6 +31,14 @@ export interface SkinDef {
   colors: string[];
   glow: boolean;
   enabled: boolean;
+  /** Optional extras; older saved skins don't have them. */
+  eyes?: EyeStyle;
+  eyeColor?: string;
+  accessory?: Accessory;
+  /** Size of bands, stripes, spots… (1 = default). */
+  patternScale?: number;
+  /** Strength of the glossy highlight (0–1). */
+  shine?: number;
 }
 
 export interface Appearance {
@@ -23,8 +46,21 @@ export interface Appearance {
   bgPattern: BgPattern;
   patternColor: string;
   patternOpacity: number;
+  patternScale: number;
+  background2: string;
+  bgGradient: BgGradient;
+  vignette: number;
+  bgImageUrl: string | null;
+  bgImageMode: BgImageMode;
+  bgImageOpacity: number;
+  bgImageScale: number;
+  particles: ParticleKind;
+  particleColor: string;
+  particleDensity: number;
   outside: string;
   border: string;
+  wallWidth: number;
+  wallGlow: number;
   foodGlow: number;
   foodColors: string[];
   landingAccent: string;
@@ -56,6 +92,8 @@ export interface GameSettings {
 
 export interface AdSettings {
   enabled: boolean;
+  /** <meta name="…" content="…"> tags for site verification (Monetag, Google…); always added to <head>. */
+  verifyTags: string;
   headCode: string;
   landingCode: string;
   deathCode: string;
@@ -93,7 +131,17 @@ export const DEFAULT_SKINS: SkinDef[] = [
   { name: 'Zebra', pattern: 'stripes', head: 'cute', colors: ['#f5f5f5', '#222222'], glow: false, enabled: true },
   { name: 'Gold', pattern: 'solid', head: 'viper', colors: ['#ffc928'], glow: true, enabled: true },
   { name: 'Toxic', pattern: 'spots', head: 'cute', colors: ['#a6ff00', '#2e7d32'], glow: true, enabled: true },
-  { name: 'Royal', pattern: 'bands', head: 'round', colors: ['#7b1fa2', '#ffd54f'], glow: false, enabled: true },
+  { name: 'Royal', pattern: 'bands', head: 'round', colors: ['#7b1fa2', '#ffd54f'], glow: false, enabled: true, accessory: 'crown' },
+  { name: 'Rattler', pattern: 'diamonds', head: 'viper', colors: ['#b08850', '#4a3420', '#e8d3a8'], glow: false, enabled: true, eyes: 'angry' },
+  { name: 'King Cobra', pattern: 'bands', head: 'cobra', colors: ['#2d2a26', '#d9c27a'], glow: false, enabled: true, eyes: 'angry', patternScale: 0.7 },
+  { name: 'Dragon', pattern: 'scales', head: 'dragon', colors: ['#c62828', '#4a0d0d', '#ff8a65'], glow: true, enabled: true, eyes: 'angry', eyeColor: '#ffb300' },
+  { name: 'Phoenix', pattern: 'fire', head: 'dragon', colors: ['#fff176', '#ff7043', '#c62828'], glow: true, enabled: true },
+  { name: 'Chrome', pattern: 'chrome', head: 'round', colors: ['#9fb3c8'], glow: false, enabled: true, accessory: 'glasses', shine: 1 },
+  { name: 'Jungle', pattern: 'camo', head: 'viper', colors: ['#556b2f', '#2e3b1f', '#8f9b5a', '#1d2614'], glow: false, enabled: true },
+  { name: 'Bubblegum', pattern: 'dots', head: 'cute', colors: ['#ff8fc7', '#ffffff'], glow: false, enabled: true, accessory: 'bow', eyes: 'googly' },
+  { name: 'Alien', pattern: 'gradient', head: 'round', colors: ['#7cff6b', '#00b894'], glow: true, enabled: true, eyes: 'cyclops', accessory: 'antenna' },
+  { name: 'Devil', pattern: 'solid', head: 'viper', colors: ['#d50000'], glow: true, enabled: true, accessory: 'horns', eyes: 'angry', eyeColor: '#ffea00' },
+  { name: 'Gentleman', pattern: 'stripes', head: 'round', colors: ['#37474f', '#90a4ae'], glow: false, enabled: true, accessory: 'hat', eyes: 'sleepy' },
 ];
 
 export const DEFAULT_SETTINGS: AllSettings = {
@@ -102,8 +150,21 @@ export const DEFAULT_SETTINGS: AllSettings = {
     bgPattern: 'hex',
     patternColor: '#7896ff',
     patternOpacity: 0.08,
+    patternScale: 1,
+    background2: '#05070f',
+    bgGradient: 'radial',
+    vignette: 0.35,
+    bgImageUrl: null,
+    bgImageMode: 'tile',
+    bgImageOpacity: 0.6,
+    bgImageScale: 1,
+    particles: 'sparkles',
+    particleColor: '#9fb4ff',
+    particleDensity: 0.4,
     outside: '#1a0d18',
     border: '#ff5d73',
+    wallWidth: 6,
+    wallGlow: 0.6,
     foodGlow: 0.8,
     foodColors: ['#ff5d73', '#4ecdc4', '#ffd166', '#8c7bff', '#5ee06a', '#ff8c42', '#3fa7ff', '#f15bb5'],
     landingAccent: '#4ecdc4',
@@ -131,6 +192,7 @@ export const DEFAULT_SETTINGS: AllSettings = {
   },
   ads: {
     enabled: false,
+    verifyTags: '',
     headCode: '',
     landingCode: '',
     deathCode: '',
@@ -147,6 +209,16 @@ export interface PublicConfig {
   appearance: Omit<Appearance, 'landingAccent' | 'landingAccent2' | 'landingBackground'>;
   sound: SoundSettings;
   ads: { enabled: boolean; deathCode: string; deathEvery: number };
+}
+
+const META_TAG = /<meta\s+(?:name|property)\s*=\s*["']([A-Za-z0-9_.:-]{1,64})["']\s+content\s*=\s*["']([^"'<>]{1,512})["']\s*\/?>/gi;
+
+/** Keeps only <meta name="…" content="…"> tags and rebuilds them so nothing else can be injected. */
+export function sanitizeMetaTags(input: string): string {
+  const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const out: string[] = [];
+  for (const m of input.matchAll(META_TAG)) out.push(`<meta name="${escape(m[1])}" content="${escape(m[2])}">`);
+  return out.slice(0, 20).join('');
 }
 
 export function toPublicConfig(s: AllSettings): PublicConfig {

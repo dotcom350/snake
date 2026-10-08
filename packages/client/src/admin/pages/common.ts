@@ -9,7 +9,7 @@ export async function settingsPage<K extends SettingsSection>(
   root: HTMLElement,
   section: K,
   title: string,
-  build: (draft: AllSettings[K], ctx: { changed: () => void; all: AllSettings }) => Node | Node[]
+  build: (draft: AllSettings[K], ctx: { changed: () => void; redraw: () => void; all: AllSettings }) => Node | Node[]
 ): Promise<void> {
   root.replaceChildren(h('p', { class: 'muted' }, t('loading')));
   const { settings, defaults } = await loadSettings();
@@ -17,8 +17,8 @@ export async function settingsPage<K extends SettingsSection>(
   const status = h('span', { class: 'save-status' });
   const body = h('div', { class: 'settings-body' });
 
-  const render = () => {
-    const content = build(draft, { changed: () => (status.textContent = '•'), all: settings });
+  const render = (): void => {
+    const content = build(draft, { changed: () => (status.textContent = '•'), redraw: render, all: settings });
     body.replaceChildren(...(Array.isArray(content) ? content : [content]));
   };
 

@@ -24,6 +24,12 @@ export async function render(root: HTMLElement): Promise<void> {
         h('label', { class: 'switch-row' }, toggle(ads.enabled, (v) => set('enabled', v)), h('strong', null, t('adsEnabled')))
       ),
       card(
+        t('verifyTitle'),
+        h('p', { class: 'muted small' }, t('verifyHelp')),
+        field(t('verifyTags'), codeArea(ads.verifyTags, 3, (v) => set('verifyTags', v))),
+        h('p', { class: 'muted small' }, t('verifyExample'), h('code', null, '<meta name="monetag" content="92d3efef502a42d1667e5b6899e83cfe">'))
+      ),
+      card(
         null,
         field(t('adsHead'), codeArea(ads.headCode, 5, (v) => set('headCode', v))),
         field(t('adsLanding'), codeArea(ads.landingCode, 5, (v) => set('landingCode', v))),
