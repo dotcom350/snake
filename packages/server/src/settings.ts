@@ -81,6 +81,7 @@ export function gameConfig() {
     boostCost: g.boostCost,
     startMass: g.startMass,
     spawnProtectionMs: g.spawnProtectionSec * 1000,
+    growth: g.growth,
   };
 }
 

@@ -52,6 +52,7 @@ export const AppearanceSchema: z.ZodType<Appearance> = z.object({
   particles: z.enum(PARTICLES),
   particleColor: hex,
   particleDensity: z.number().min(0).max(1),
+  nebula: z.number().min(0).max(1),
   outside: hex,
   border: hex,
   wallWidth: z.number().min(1).max(30),
@@ -83,6 +84,7 @@ export const GameSettingsSchema: z.ZodType<GameSettings> = z.object({
   boostCost: z.number().min(0).max(40),
   startMass: z.number().min(5).max(200),
   spawnProtectionSec: z.number().min(0).max(10),
+  growth: z.number().min(0.5).max(10),
 });
 
 export const AdsSchema: z.ZodType<AdSettings> = z.object({

@@ -32,7 +32,7 @@ const PATTERN_LABEL: Record<SkinPattern, Key> = {
   fire: 'patFire',
   chrome: 'patChrome',
 };
-const HEAD_LABEL: Record<HeadShape, Key> = { round: 'headRound', viper: 'headViper', cute: 'headCute', cobra: 'headCobra', dragon: 'headDragon' };
+const HEAD_LABEL: Record<HeadShape, Key> = { round: 'headRound', viper: 'headViper', cute: 'headCute', cobra: 'headCobra', dragon: 'headDragon', rocket: 'headRocket', cat: 'headCat' };
 const EYE_LABEL: Record<EyeStyle, Key> = { normal: 'eyeNormal', angry: 'eyeAngry', sleepy: 'eyeSleepy', cyclops: 'eyeCyclops', googly: 'eyeGoogly' };
 const ACC_LABEL: Record<Accessory, Key> = { none: 'accNone', crown: 'accCrown', horns: 'accHorns', hat: 'accHat', bow: 'accBow', glasses: 'accGlasses', antenna: 'accAntenna' };
 

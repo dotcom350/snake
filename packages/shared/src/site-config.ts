@@ -2,11 +2,11 @@ export const SKIN_PATTERNS = [
   'solid', 'bands', 'stripes', 'gradient', 'rainbow', 'scales', 'spots', 'neon', 'galaxy',
   'diamonds', 'dots', 'camo', 'fire', 'chrome',
 ] as const;
-export const HEAD_SHAPES = ['round', 'viper', 'cute', 'cobra', 'dragon'] as const;
+export const HEAD_SHAPES = ['round', 'viper', 'cute', 'cobra', 'dragon', 'rocket', 'cat'] as const;
 export const EYE_STYLES = ['normal', 'angry', 'sleepy', 'cyclops', 'googly'] as const;
 export const ACCESSORIES = ['none', 'crown', 'horns', 'hat', 'bow', 'glasses', 'antenna'] as const;
 export const BG_PATTERNS = [
-  'hex', 'grid', 'dots', 'none', 'diamonds', 'triangles', 'circles', 'stars', 'waves', 'bricks', 'scales', 'cross',
+  'honeycomb', 'hex', 'grid', 'dots', 'none', 'diamonds', 'triangles', 'circles', 'stars', 'waves', 'bricks', 'scales', 'cross',
 ] as const;
 export const BG_GRADIENTS = ['none', 'radial', 'linear'] as const;
 export const PARTICLES = ['none', 'sparkles', 'bubbles', 'snow', 'fireflies', 'embers'] as const;
@@ -57,6 +57,8 @@ export interface Appearance {
   particles: ParticleKind;
   particleColor: string;
   particleDensity: number;
+  /** Large, faint colour clouds that give the floor depth (0–1). */
+  nebula: number;
   outside: string;
   border: string;
   wallWidth: number;
@@ -88,6 +90,8 @@ export interface GameSettings {
   boostCost: number;
   startMass: number;
   spawnProtectionSec: number;
+  /** Multiplier for the length gained from food. */
+  growth: number;
 }
 
 export interface AdSettings {
@@ -141,30 +145,35 @@ export const DEFAULT_SKINS: SkinDef[] = [
   { name: 'Bubblegum', pattern: 'dots', head: 'cute', colors: ['#ff8fc7', '#ffffff'], glow: false, enabled: true, accessory: 'bow', eyes: 'googly' },
   { name: 'Alien', pattern: 'gradient', head: 'round', colors: ['#7cff6b', '#00b894'], glow: true, enabled: true, eyes: 'cyclops', accessory: 'antenna' },
   { name: 'Devil', pattern: 'solid', head: 'viper', colors: ['#d50000'], glow: true, enabled: true, accessory: 'horns', eyes: 'angry', eyeColor: '#ffea00' },
+  { name: 'Cosmic Dragon', pattern: 'galaxy', head: 'dragon', colors: ['#16307a', '#3fa7ff', '#ffffff'], glow: true, enabled: true, eyes: 'angry', eyeColor: '#7df9ff', shine: 0.8 },
+  { name: 'Rocket', pattern: 'bands', head: 'rocket', colors: ['#f2f4f8', '#e53935', '#f2f4f8', '#9aa4b5'], glow: false, enabled: true, patternScale: 1.4, shine: 0.9 },
+  { name: 'Void', pattern: 'stripes', head: 'viper', colors: ['#15151f', '#19e6c9'], glow: true, enabled: true, eyes: 'angry', eyeColor: '#19e6c9', patternScale: 0.8 },
+  { name: 'Space Cat', pattern: 'stripes', head: 'cat', colors: ['#ff8fc7', '#ffc2e0'], glow: false, enabled: true, eyes: 'normal', eyeColor: '#7c4dff', patternScale: 1.2 },
   { name: 'Gentleman', pattern: 'stripes', head: 'round', colors: ['#37474f', '#90a4ae'], glow: false, enabled: true, accessory: 'hat', eyes: 'sleepy' },
 ];
 
 export const DEFAULT_SETTINGS: AllSettings = {
   appearance: {
-    background: '#0d1428',
-    bgPattern: 'hex',
-    patternColor: '#7896ff',
-    patternOpacity: 0.08,
+    background: '#151c2e',
+    bgPattern: 'honeycomb',
+    patternColor: '#8fa8ff',
+    patternOpacity: 0.12,
     patternScale: 1,
     background2: '#05070f',
     bgGradient: 'radial',
-    vignette: 0.35,
+    vignette: 0.4,
     bgImageUrl: null,
     bgImageMode: 'tile',
     bgImageOpacity: 0.6,
     bgImageScale: 1,
     particles: 'sparkles',
     particleColor: '#9fb4ff',
-    particleDensity: 0.4,
-    outside: '#1a0d18',
-    border: '#ff5d73',
-    wallWidth: 6,
-    wallGlow: 0.6,
+    particleDensity: 0.3,
+    nebula: 0.5,
+    outside: '#06070d',
+    border: '#3fe0ff',
+    wallWidth: 8,
+    wallGlow: 0.8,
     foodGlow: 0.8,
     foodColors: ['#ff5d73', '#4ecdc4', '#ffd166', '#8c7bff', '#5ee06a', '#ff8c42', '#3fa7ff', '#f15bb5'],
     landingAccent: '#4ecdc4',
@@ -189,6 +198,7 @@ export const DEFAULT_SETTINGS: AllSettings = {
     boostCost: 7,
     startMass: 10,
     spawnProtectionSec: 2.5,
+    growth: 2,
   },
   ads: {
     enabled: false,

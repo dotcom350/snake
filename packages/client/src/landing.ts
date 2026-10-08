@@ -78,14 +78,23 @@ async function initSkinPicker(): Promise<void> {
   const { drawSkinPreview } = await import('./game/skins');
   const canvas = picker.querySelector('canvas')!;
   const name = picker.querySelector<HTMLSpanElement>('.skin-name')!;
+  const dots = picker.querySelector<HTMLDivElement>('.skin-dots');
   const prefs = loadPrefs();
   let pos = Math.max(0, choices.findIndex((c) => c.i === prefs.skin));
+  const compact = choices.length > 12;
+  if (dots) dots.replaceChildren(...(compact ? [document.createElement('em')] : choices.map(() => document.createElement('span'))));
 
   const select = (next: number) => {
     pos = (next + choices.length) % choices.length;
     name.textContent = choices[pos].s.name;
     prefs.skin = choices[pos].i;
     savePrefs(prefs);
+    if (compact) {
+      const counter = dots?.querySelector('em');
+      if (counter) counter.textContent = `${pos + 1} / ${choices.length}`;
+    } else {
+      dots?.querySelectorAll('span').forEach((d, i) => d.classList.toggle('on', i === pos));
+    }
   };
   for (const b of picker.querySelectorAll<HTMLButtonElement>('.skin-nav')) {
     b.addEventListener('click', () => select(pos + Number(b.dataset.dir)));
@@ -110,6 +119,22 @@ async function initSkinPicker(): Promise<void> {
 
 void initSkinPicker();
 
+async function showOnlineCount(): Promise<void> {
+  const el = document.getElementById('online');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/metrics', { cache: 'no-store' });
+    const data = (await res.json()) as { humanPlayers?: number };
+    const n = data.humanPlayers ?? 0;
+    if (n > 0) {
+      el.querySelector('b')!.textContent = (el.dataset.text ?? '{n}').replace('{n}', new Intl.NumberFormat(locale).format(n));
+      el.hidden = false;
+    }
+  } catch {
+    // Offline or blocked: just don't show the counter.
+  }
+}
+
 const whenIdle = (cb: () => void) =>
   'requestIdleCallback' in window ? requestIdleCallback(cb, { timeout: 3000 }) : setTimeout(cb, 1500);
 
@@ -119,6 +144,7 @@ window.addEventListener('load', () => {
     const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
     const canvas = document.querySelector<HTMLCanvasElement>('.hero-bg');
-    if (canvas && !reduceMotion && !saveData) void import('./hero-bg').then((m) => m.startHeroBackground(canvas));
+    if (canvas && !saveData) void import('./hero-bg').then((m) => m.startHeroBackground(canvas, reduceMotion));
+    void showOnlineCount();
   });
 });

@@ -326,7 +326,7 @@ export class Room {
         const dx = f.x - nx;
         const dy = f.y - ny;
         if (dx * dx + dy * dy <= reach * reach) {
-          s.mass += f.size;
+          s.mass += f.size * g.growth;
           if (s.mass > s.peakMass) s.peakMass = s.mass;
           this.removeFood(f);
         }

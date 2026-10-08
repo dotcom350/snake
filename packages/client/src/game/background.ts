@@ -28,6 +28,53 @@ export function makeBackgroundTile(theme: Pick<Theme, 'background' | 'bgPattern'
   };
 
   switch (theme.bgPattern) {
+    case 'honeycomb': {
+      // Bevelled cells: dark gaps, light upper-left edge, soft shadow lower-right.
+      const R = 34;
+      const W = 3 * R;
+      const H = Math.sqrt(3) * R;
+      const x = begin(W, H);
+      const [br, bg, bb] = hexToRgb(theme.background);
+      const [pr, pg, pb] = hexToRgb(theme.patternColor);
+      const o = theme.patternOpacity;
+      x.fillStyle = `rgb(${Math.round(br * 0.55)},${Math.round(bg * 0.55)},${Math.round(bb * 0.55)})`;
+      x.fillRect(0, 0, W, H);
+      const cell = (cx: number, cy: number, tone: number) => {
+        const rr = R - 2.2;
+        const pts: Array<[number, number]> = [];
+        for (let i = 0; i < 6; i++) {
+          const a = (Math.PI / 3) * i;
+          pts.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]);
+        }
+        x.beginPath();
+        pts.forEach(([px, py], i) => (i ? x.lineTo(px, py) : x.moveTo(px, py)));
+        x.closePath();
+        const g = x.createLinearGradient(cx - rr, cy - rr, cx + rr, cy + rr);
+        const lift = (v: number, p2: number, k: number) => Math.round(Math.min(255, v * (1 + tone) + (p2 - v) * k));
+        g.addColorStop(0, `rgb(${lift(br, pr, o * 0.7)},${lift(bg, pg, o * 0.7)},${lift(bb, pb, o * 0.7)})`);
+        g.addColorStop(1, `rgb(${Math.round(br * (0.82 + tone))},${Math.round(bg * (0.82 + tone))},${Math.round(bb * (0.82 + tone))})`);
+        x.fillStyle = g;
+        x.fill();
+        // Highlight on the upper edges (vertices 3,4,5 face up-left in canvas space).
+        x.strokeStyle = `rgba(${pr},${pg},${pb},${Math.min(0.6, o * 2.2)})`;
+        x.lineWidth = 1.4;
+        x.beginPath();
+        x.moveTo(pts[2][0], pts[2][1]);
+        x.lineTo(pts[3][0], pts[3][1]);
+        x.lineTo(pts[4][0], pts[4][1]);
+        x.lineTo(pts[5][0], pts[5][1]);
+        x.stroke();
+        x.strokeStyle = 'rgba(0,0,0,0.28)';
+        x.beginPath();
+        x.moveTo(pts[5][0], pts[5][1]);
+        x.lineTo(pts[0][0], pts[0][1]);
+        x.lineTo(pts[1][0], pts[1][1]);
+        x.lineTo(pts[2][0], pts[2][1]);
+        x.stroke();
+      };
+      for (const [cx, cy, tone] of [[0, 0, 0], [W, 0, 0], [0, H, 0], [W, H, 0], [1.5 * R, H / 2, -0.04]] as const) cell(cx, cy, tone);
+      break;
+    }
     case 'hex': {
       const w = 84;
       const h = w * Math.sqrt(3);
@@ -248,6 +295,8 @@ export function drawArena(ctx: CanvasRenderingContext2D, theme: Theme, assets: A
       ctx.globalAlpha = 1;
     }
 
+    if (theme.nebula > 0) drawNebula(ctx, theme, ax0, ay0, ax1, ay1);
+
     if (theme.bgGradient !== 'none') {
       const g =
         theme.bgGradient === 'radial'
@@ -262,17 +311,66 @@ export function drawArena(ctx: CanvasRenderingContext2D, theme: Theme, assets: A
     if (theme.particles !== 'none' && theme.particleDensity > 0) drawParticles(ctx, theme, v, ax0, ay0, ax1, ay1);
   }
 
+  drawBarrier(ctx, theme, v);
+}
+
+/** Animated energy barrier along the arena edge. */
+function drawBarrier(ctx: CanvasRenderingContext2D, theme: Theme, v: ArenaView): void {
   const ww = theme.wallWidth;
-  if (theme.wallGlow > 0) {
-    ctx.globalAlpha = 0.35 * theme.wallGlow;
-    ctx.strokeStyle = theme.border;
-    ctx.lineWidth = ww * 4.5;
-    ctx.strokeRect(-ww * 2.25, -ww * 2.25, v.arenaW + ww * 4.5, v.arenaH + ww * 4.5);
-    ctx.globalAlpha = 1;
-  }
+  const W = v.arenaW, H = v.arenaH;
+  const pulse = 0.75 + 0.25 * Math.sin(v.time / 420);
+  const rect = (pad: number) => ctx.strokeRect(-pad, -pad, W + pad * 2, H + pad * 2);
   ctx.strokeStyle = theme.border;
+  if (theme.wallGlow > 0) {
+    ctx.globalAlpha = 0.1 * theme.wallGlow * pulse;
+    ctx.lineWidth = ww * 7;
+    rect(ww * 3.5);
+    ctx.globalAlpha = 0.25 * theme.wallGlow * pulse;
+    ctx.lineWidth = ww * 3;
+    rect(ww * 1.5);
+  }
+  ctx.globalAlpha = 1;
   ctx.lineWidth = ww;
-  ctx.strokeRect(-ww / 2, -ww / 2, v.arenaW + ww, v.arenaH + ww);
+  rect(ww / 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = Math.max(1, ww * 0.28);
+  ctx.setLineDash([46, 74]);
+  ctx.lineDashOffset = -v.time * 0.09;
+  rect(ww / 2);
+  ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
+}
+
+const NEBULA_CELL = 1100;
+
+/** Big, faint colour clouds placed deterministically in world space (no tiling seams). */
+function drawNebula(ctx: CanvasRenderingContext2D, theme: Theme, x0: number, y0: number, x1: number, y1: number): void {
+  const colors = [theme.patternColor, theme.border, theme.particleColor];
+  const reach = NEBULA_CELL;
+  const cx0 = Math.floor((x0 - reach) / NEBULA_CELL), cx1 = Math.floor((x1 + reach) / NEBULA_CELL);
+  const cy0 = Math.floor((y0 - reach) / NEBULA_CELL), cy1 = Math.floor((y1 + reach) / NEBULA_CELL);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0, y0, x1 - x0, y1 - y0);
+  ctx.clip();
+  for (let cx = cx0; cx <= cx1; cx++) {
+    for (let cy = cy0; cy <= cy1; cy++) {
+      const h = hash(cx * 3.1, cy * 7.7);
+      if (h < 0.35) continue;
+      const x = (cx + hash(cx, cy * 2)) * NEBULA_CELL;
+      const y = (cy + hash(cx * 2, cy)) * NEBULA_CELL;
+      const r = 450 + hash(cy, cx) * 550;
+      if (x + r < x0 || x - r > x1 || y + r < y0 || y - r > y1) continue;
+      const color = colors[Math.floor(h * 10) % colors.length];
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgba(color, 0.09 * theme.nebula));
+      g.addColorStop(0.6, rgba(color, 0.035 * theme.nebula));
+      g.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+  }
+  ctx.restore();
 }
 
 const CELL = 220;

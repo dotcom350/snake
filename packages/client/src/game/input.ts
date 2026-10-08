@@ -74,7 +74,7 @@ export class Controls {
 
   private onDown(e: PointerEvent): void {
     if (e.pointerType === 'mouse') {
-      if (e.button === 0) this.pointerBoost = true;
+      if (e.button === 0 || e.button === 2) this.pointerBoost = true;
       this.aimFromCenter(e);
       return;
     }
@@ -113,7 +113,7 @@ export class Controls {
 
   private onUp(e: PointerEvent): void {
     if (e.pointerType === 'mouse') {
-      if (e.button === 0) this.pointerBoost = false;
+      if (e.button === 0 || e.button === 2) this.pointerBoost = false;
       return;
     }
     if (e.pointerId === this.stickId) {

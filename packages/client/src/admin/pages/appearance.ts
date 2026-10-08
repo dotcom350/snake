@@ -9,6 +9,7 @@ import { arenaPreview } from './preview';
 type Preset = Partial<Appearance>;
 
 const PRESETS: Array<[Key, string, Preset]> = [
+  ['presetArcade', '#3fe0ff', { background: '#151c2e', bgPattern: 'honeycomb', patternColor: '#8fa8ff', patternOpacity: 0.12, patternScale: 1, background2: '#05070f', bgGradient: 'radial', vignette: 0.4, particles: 'sparkles', particleColor: '#9fb4ff', particleDensity: 0.3, nebula: 0.5, outside: '#06070d', border: '#3fe0ff', wallWidth: 8, wallGlow: 0.8, foodColors: ['#ff5d73', '#4ecdc4', '#ffd166', '#8c7bff', '#5ee06a', '#ff8c42', '#3fa7ff', '#f15bb5'] }],
   ['presetNeon', '#4ecdc4', { background: '#0d1428', bgPattern: 'hex', patternColor: '#7896ff', patternOpacity: 0.08, patternScale: 1, background2: '#05070f', bgGradient: 'radial', vignette: 0.35, particles: 'sparkles', particleColor: '#9fb4ff', particleDensity: 0.4, outside: '#1a0d18', border: '#ff5d73', wallWidth: 6, wallGlow: 0.6, foodColors: ['#ff5d73', '#4ecdc4', '#ffd166', '#8c7bff', '#5ee06a', '#ff8c42', '#3fa7ff', '#f15bb5'] }],
   ['presetSpace', '#8c7bff', { background: '#05060f', bgPattern: 'stars', patternColor: '#ffffff', patternOpacity: 0.5, patternScale: 1, background2: '#1a0b3d', bgGradient: 'radial', vignette: 0.5, particles: 'sparkles', particleColor: '#ffffff', particleDensity: 0.5, outside: '#000000', border: '#8c7bff', wallWidth: 4, wallGlow: 0.8, foodColors: ['#ffffff', '#8c7bff', '#3fa7ff', '#f15bb5', '#ffd166'] }],
   ['presetOcean', '#4fc3f7', { background: '#0a3a5c', bgPattern: 'waves', patternColor: '#7fd4ff', patternOpacity: 0.15, patternScale: 1.2, background2: '#031a2b', bgGradient: 'linear', vignette: 0.4, particles: 'bubbles', particleColor: '#bfefff', particleDensity: 0.5, outside: '#021320', border: '#4fc3f7', wallWidth: 6, wallGlow: 0.5, foodColors: ['#ffd166', '#ff8c42', '#5ee06a', '#ffffff', '#f15bb5'] }],
@@ -131,6 +132,7 @@ export async function render(root: HTMLElement): Promise<() => void> {
             select(
               a.bgPattern,
               [
+                ['honeycomb', t('patternHoneycomb')],
                 ['hex', t('patternHex')],
                 ['grid', t('patternGrid')],
                 ['dots', t('patternDots')],
@@ -183,7 +185,8 @@ export async function render(root: HTMLElement): Promise<() => void> {
             )
           ),
           field(t('particleColor'), colorInput(a.particleColor, (v) => set('particleColor', v))),
-          field(t('particleDensity'), range(a.particleDensity, 0, 1, 0.05, (v) => set('particleDensity', v)))
+          field(t('particleDensity'), range(a.particleDensity, 0, 1, 0.05, (v) => set('particleDensity', v))),
+          field(t('nebula'), range(a.nebula, 0, 1, 0.05, (v) => set('nebula', v)))
         ),
         card(
           t('imageTitle'),

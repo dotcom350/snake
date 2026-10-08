@@ -51,7 +51,8 @@ export async function render(root: HTMLElement): Promise<void> {
           field(t('boostSpeed'), num('boostSpeed', 100, 800)),
           field(t('boostCost'), num('boostCost', 0, 40, 0.5)),
           field(t('startMass'), num('startMass', 5, 200)),
-          field(t('spawnProtection'), num('spawnProtectionSec', 0, 10, 0.5))
+          field(t('spawnProtection'), num('spawnProtectionSec', 0, 10, 0.5)),
+          field(t('growth'), num('growth', 0.5, 10, 0.25))
         )
       ),
     ];

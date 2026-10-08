@@ -293,6 +293,51 @@ function drawOverlays(ctx: CanvasRenderingContext2D, skin: SkinDef, p: Prepared,
   }
 }
 
+function drawSegments(ctx: CanvasRenderingContext2D, n: number, r: number, widthAt: (d: number) => number): void {
+  const period = r * 1.15;
+  ctx.strokeStyle = 'rgba(0,0,0,0.13)';
+  ctx.lineWidth = Math.max(0.8, r * 0.11);
+  for (let i = n - 2; i >= 2; i--) {
+    const d = buf[i * 3 + 2];
+    if (Math.floor(d / period) === Math.floor(buf[(i - 1) * 3 + 2] / period)) continue;
+    const ang = bodyAngle(i);
+    const rr = r * widthAt(d) * 0.92;
+    const cx = buf[i * 3] - Math.cos(ang) * rr * 0.55;
+    const cy = buf[i * 3 + 1] - Math.sin(ang) * rr * 0.55;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rr, ang - 0.95, ang + 0.95);
+    ctx.stroke();
+  }
+}
+
+/** Exhaust flame behind the tail of rocket skins. */
+function drawFlame(ctx: CanvasRenderingContext2D, n: number, r: number, o: DrawSnakeOptions): void {
+  const tx = buf[(n - 1) * 3], ty = buf[(n - 1) * 3 + 1];
+  const px = buf[(n - 2) * 3], py = buf[(n - 2) * 3 + 1];
+  let dx = tx - px, dy = ty - py;
+  const len = Math.hypot(dx, dy) || 1;
+  dx /= len;
+  dy /= len;
+  const flicker = 0.8 + 0.2 * Math.sin(o.time * 0.05) + 0.1 * Math.sin(o.time * 0.13);
+  const L = r * (o.boosting ? 4.2 : 2.4) * flicker;
+  const w = r * 0.55;
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createLinearGradient(tx, ty, tx + dx * L, ty + dy * L);
+  g.addColorStop(0, 'rgba(255,255,220,0.95)');
+  g.addColorStop(0.3, 'rgba(255,190,60,0.85)');
+  g.addColorStop(0.7, 'rgba(255,80,30,0.45)');
+  g.addColorStop(1, 'rgba(255,40,20,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(tx - dy * w, ty + dx * w);
+  ctx.quadraticCurveTo(tx + dx * L * 0.6 - dy * w * 0.6, ty + dy * L * 0.6 + dx * w * 0.6, tx + dx * L, ty + dy * L);
+  ctx.quadraticCurveTo(tx + dx * L * 0.6 + dy * w * 0.6, ty + dy * L * 0.6 - dx * w * 0.6, tx + dy * w, ty - dx * w);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalCompositeOperation = prev;
+}
+
 export function drawSnake(ctx: CanvasRenderingContext2D, points: Float32Array, skin: SkinDef, o: DrawSnakeOptions): void {
   if (points.length < 4) return;
   const r = o.radius;
@@ -305,6 +350,20 @@ export function drawSnake(ctx: CanvasRenderingContext2D, points: Float32Array, s
   const shine = skin.shine ?? (skin.pattern === 'chrome' ? 1 : 0.6);
 
   ctx.globalAlpha = o.alpha;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (o.quality === 'high') {
+    // Soft drop shadow so the body sits on the floor.
+    ctx.beginPath();
+    ctx.moveTo(buf[(n - 1) * 3] + r * 0.25, buf[(n - 1) * 3 + 1] + r * 0.45);
+    for (let i = n - 2; i >= 0; i--) ctx.lineTo(buf[i * 3] + r * 0.25, buf[i * 3 + 1] + r * 0.45);
+    ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+    ctx.lineWidth = r * 2;
+    ctx.stroke();
+  }
+
+  if (skin.head === 'rocket' && n > 2) drawFlame(ctx, n, r, o);
 
   if (glow) {
     const prev = ctx.globalCompositeOperation;
@@ -351,8 +410,11 @@ export function drawSnake(ctx: CanvasRenderingContext2D, points: Float32Array, s
     }
   }
 
-  // 3. Pattern details on top of the base colour.
-  if (o.quality === 'high') drawOverlays(ctx, skin, p, n, r, widthAt, o.time);
+  // 3. Pattern details on top of the base colour, then soft segment rings.
+  if (o.quality === 'high') {
+    drawOverlays(ctx, skin, p, n, r, widthAt, o.time);
+    if (!neon) drawSegments(ctx, n, r, widthAt);
+  }
 
   // 4. Tube shading: a shadow on the lower right and highlights on the upper left.
   const trace = (dx: number, dy: number) => {
@@ -511,6 +573,92 @@ function drawHead(ctx: CanvasRenderingContext2D, hx: number, hy: number, nx: num
       fillHeadGradient(ctx, f, color, neon);
       tongue(ctx, f, tipX, tipY, o.time);
       eyeForward = 0.4; eyeSide = 0.55; eyeR = 0.27;
+      break;
+    }
+    case 'rocket': {
+      // Nose cone with a porthole; fins just behind the head.
+      for (const s of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(hx - dx * r * 0.3 + f.px * s * r * 0.8, hy - dy * r * 0.3 + f.py * s * r * 0.8);
+        ctx.lineTo(hx - dx * r * 1.5 + f.px * s * r * 1.55, hy - dy * r * 1.5 + f.py * s * r * 1.55);
+        ctx.lineTo(hx - dx * r * 1.4 + f.px * s * r * 0.7, hy - dy * r * 1.4 + f.py * s * r * 0.7);
+        ctx.closePath();
+        ctx.fillStyle = rgbStr(c1);
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.moveTo(hx + dx * r * 1.75, hy + dy * r * 1.75);
+      ctx.quadraticCurveTo(hx + dx * r * 0.9 + f.px * r * 1.1, hy + dy * r * 0.9 + f.py * r * 1.1, hx - dx * r * 0.35 + f.px * r * 1.02, hy - dy * r * 0.35 + f.py * r * 1.02);
+      ctx.lineTo(hx - dx * r * 0.35 - f.px * r * 1.02, hy - dy * r * 0.35 - f.py * r * 1.02);
+      ctx.quadraticCurveTo(hx + dx * r * 0.9 - f.px * r * 1.1, hy + dy * r * 0.9 - f.py * r * 1.1, hx + dx * r * 1.75, hy + dy * r * 1.75);
+      fillHeadGradient(ctx, f, color, false);
+      ctx.beginPath();
+      ctx.moveTo(hx + dx * r * 1.75, hy + dy * r * 1.75);
+      ctx.quadraticCurveTo(hx + dx * r * 1.35 + f.px * r * 0.55, hy + dy * r * 1.35 + f.py * r * 0.55, hx + dx * r * 1.15 + f.px * r * 0.62, hy + dy * r * 1.15 + f.py * r * 0.62);
+      ctx.lineTo(hx + dx * r * 1.15 - f.px * r * 0.62, hy + dy * r * 1.15 - f.py * r * 0.62);
+      ctx.quadraticCurveTo(hx + dx * r * 1.35 - f.px * r * 0.55, hy + dy * r * 1.35 - f.py * r * 0.55, hx + dx * r * 1.75, hy + dy * r * 1.75);
+      ctx.fillStyle = rgbStr(c1);
+      ctx.fill();
+      const wx = hx + dx * r * 0.35, wy = hy + dy * r * 0.35, wr = r * 0.46;
+      ctx.fillStyle = '#5b6578';
+      ctx.beginPath();
+      ctx.arc(wx, wy, wr, 0, Math.PI * 2);
+      ctx.fill();
+      const glass = ctx.createRadialGradient(wx - wr * 0.3, wy - wr * 0.3, 0, wx, wy, wr);
+      glass.addColorStop(0, '#d8f4ff');
+      glass.addColorStop(0.5, '#4fb3ff');
+      glass.addColorStop(1, '#174a8c');
+      ctx.fillStyle = glass;
+      ctx.beginPath();
+      ctx.arc(wx, wy, wr * 0.74, 0, Math.PI * 2);
+      ctx.fill();
+      drawAccessory(ctx, f, skin, p, o.time);
+      return;
+    }
+    case 'cat': {
+      // Ears behind the head, then a round face with whiskers and a nose.
+      for (const s of [-1, 1]) {
+        const bx = hx - dx * r * 0.35 + f.px * s * r * 0.62;
+        const by = hy - dy * r * 0.35 + f.py * s * r * 0.62;
+        const tipX = hx - dx * r * 0.95 + f.px * s * r * 1.25;
+        const tipY = hy - dy * r * 0.95 + f.py * s * r * 1.25;
+        ctx.beginPath();
+        ctx.moveTo(bx + dx * r * 0.45, by + dy * r * 0.45);
+        ctx.lineTo(tipX, tipY);
+        ctx.lineTo(bx - dx * r * 0.45 - f.px * s * r * 0.2, by - dy * r * 0.45 - f.py * s * r * 0.2);
+        ctx.closePath();
+        ctx.fillStyle = rgbStr(darken(color, 0.1));
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(bx + dx * r * 0.22, by + dy * r * 0.22);
+        ctx.lineTo(hx - dx * r * 0.8 + f.px * s * r * 1.05, hy - dy * r * 0.8 + f.py * s * r * 1.05);
+        ctx.lineTo(bx - dx * r * 0.25, by - dy * r * 0.25);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,170,205,0.9)';
+        ctx.fill();
+      }
+      const catR = r * 1.15;
+      ctx.drawImage(sprite('ball', color), hx - catR, hy - catR, catR * 2, catR * 2);
+      ctx.strokeStyle = 'rgba(40,20,40,0.55)';
+      ctx.lineWidth = Math.max(0.8, r * 0.06);
+      for (const s of [-1, 1]) {
+        for (const k of [-0.18, 0.12]) {
+          const sx = hx + dx * r * 0.62 + f.px * s * r * 0.45;
+          const sy = hy + dy * r * 0.62 + f.py * s * r * 0.45;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx + dx * r * k * 2 + f.px * s * r * 0.95, sy + dy * r * k * 2 + f.py * s * r * 0.95);
+          ctx.stroke();
+        }
+      }
+      ctx.fillStyle = '#ff5c9a';
+      ctx.beginPath();
+      ctx.moveTo(hx + dx * r * 0.95, hy + dy * r * 0.95);
+      ctx.lineTo(hx + dx * r * 0.75 + f.px * r * 0.14, hy + dy * r * 0.75 + f.py * r * 0.14);
+      ctx.lineTo(hx + dx * r * 0.75 - f.px * r * 0.14, hy + dy * r * 0.75 - f.py * r * 0.14);
+      ctx.closePath();
+      ctx.fill();
+      eyeForward = 0.28; eyeSide = 0.48; eyeR = 0.38;
       break;
     }
     case 'cute': {

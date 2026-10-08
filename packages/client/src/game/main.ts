@@ -92,11 +92,18 @@ export function startGame(opts: StartOptions): void {
     controls.mode = prefs.controlMode;
     root.classList.toggle('boost-left', prefs.boostSide === 'left');
     renderer.setOptions(prefs);
+    syncLayout();
     hint.textContent = isTouch ? (prefs.controlMode === 'follow' ? t('hintFollow') : t('hintTouch')) : t('hintMouse');
+  };
+  const syncLayout = () => {
+    root.style.setProperty('--mm', `${renderer.minimapRadius * 2}px`);
+    root.classList.toggle('no-minimap', !prefs.showMinimap);
   };
   const settingsPanel = createSettingsPanel(t, prefs, isTouch, applyPrefs);
 
-  hud.append(scoreBox, board, exitBtn, gearBtn, muteBtn, hint, toast);
+  const icons = el('div', 'hud-icons');
+  icons.append(exitBtn, gearBtn, muteBtn);
+  hud.append(icons, scoreBox, board, hint, toast);
   root.append(canvas, hud, boostBtn, status, panel, settingsPanel.element);
   document.body.append(root);
   document.body.classList.add('in-game');
@@ -128,6 +135,10 @@ export function startGame(opts: StartOptions): void {
   let kills = 0;
   let lastMass = 0;
   let wasBoosting = false;
+  let shakeUntil = 0;
+  const vibrate = (ms: number) => {
+    if (isTouch) navigator.vibrate?.(ms);
+  };
 
   const showStatus = (text: string | null) => {
     status.textContent = text ?? '';
@@ -234,12 +245,15 @@ export function startGame(opts: StartOptions): void {
         kills++;
         killsLine.textContent = `${t('kills')}: ${num(kills)}`;
         sound.kill();
+        vibrate(30);
         showToast(t('youAte', { name: msg.name }));
         break;
       case 'died': {
         alive = false;
         deaths++;
         sound.death();
+        vibrate(120);
+        shakeUntil = performance.now() + 350;
         const best = Number(storage.get('best') ?? 0);
         const isBest = msg.score > best;
         if (isBest) storage.set('best', String(msg.score));
@@ -265,6 +279,7 @@ export function startGame(opts: StartOptions): void {
       prev = cur;
       cur = state;
       curAt = at;
+      if (prev) detectEffects(prev, state);
     },
     onMessage,
     onClose() {
@@ -298,7 +313,10 @@ export function startGame(opts: StartOptions): void {
     applyPrefs();
   };
 
-  const onResize = () => renderer.resize();
+  const onResize = () => {
+    renderer.resize();
+    syncLayout();
+  };
   window.addEventListener('resize', onResize);
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -310,6 +328,34 @@ export function startGame(opts: StartOptions): void {
     }
   };
   window.addEventListener('keydown', onKey);
+
+  /** Spawns eat/death effects by comparing two consecutive server states. Purely visual. */
+  const detectEffects = (a: DecodedState, b: DecodedState) => {
+    const halfW = renderer.width / 2 / zoom;
+    const halfH = renderer.height / 2 / zoom;
+    const inner = (x: number, y: number, margin: number) => Math.abs(x - camX) < halfW - margin && Math.abs(y - camY) < halfH - margin;
+
+    const heads = b.snakes.map((s) => ({ x: s.points[0], y: s.points[1], r: snakeRadius(s.mass) + 45 }));
+    const present = new Set<number>();
+    for (let i = 0; i < b.food.length; i += 4) present.add(b.food[i] * 32768 + b.food[i + 1]);
+    let collected = 0;
+    for (let i = 0; i < a.food.length && collected < 10; i += 4) {
+      const x = a.food[i], y = a.food[i + 1];
+      if (present.has(x * 32768 + y) || !inner(x, y, 0)) continue;
+      const head = heads.find((hd) => (hd.x - x) ** 2 + (hd.y - y) ** 2 < hd.r * hd.r);
+      if (!head) continue;
+      renderer.effects.collect(x, y, renderer.foodColor(a.food[i + 3]), head.x, head.y);
+      collected++;
+    }
+
+    const alive = new Set(b.snakes.map((s) => s.id));
+    for (const s of a.snakes) {
+      if (alive.has(s.id) || s.points.length < 2) continue;
+      const x = s.points[0], y = s.points[1];
+      if (!inner(x, y, 120)) continue;
+      renderer.effects.burst(x, y, renderer.skinColor(s.skin), Math.min(3, Math.max(0.6, s.mass / 120)));
+    }
+  };
 
   const buildSnakes = (now: number): RenderSnake[] => {
     if (!cur) return [];
@@ -345,16 +391,28 @@ export function startGame(opts: StartOptions): void {
   };
 
   let lastFrame = performance.now();
+  let trailToggle = false;
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
+    const dt = Math.min(0.05, (now - lastFrame) / 1000);
     const snakes = buildSnakes(now);
+    trailToggle = !trailToggle;
+    if (trailToggle) {
+      for (const sn of snakes) {
+        if (!sn.boosting || sn.points.length < 4) continue;
+        const n = sn.points.length;
+        renderer.effects.trail(sn.points[n - 2], sn.points[n - 1], renderer.skinColor(sn.skin));
+      }
+    }
     const self = snakes.length && snakes[snakes.length - 1].isSelf ? snakes[snakes.length - 1] : null;
 
     if (self) {
       camX = self.points[0];
       camY = self.points[1];
       const viewSize = Math.max(renderer.width, renderer.height);
-      const targetZoom = viewSize / (1100 + snakeRadius(self.mass) * 14);
+      // Phones get a closer camera so snakes stay readable on small screens.
+      const base = Math.max(820, Math.min(1100, viewSize * 1.05));
+      const targetZoom = viewSize / (base + snakeRadius(self.mass) * 14);
       zoom += (targetZoom - zoom) * 0.05;
       if (lastMass && self.mass > lastMass) sound.eat();
       lastMass = self.mass;
@@ -370,9 +428,18 @@ export function startGame(opts: StartOptions): void {
 
     if (alive && controls.hasInput) net.input(controls.angle, controls.boost, now);
 
+    let shakeX = 0;
+    let shakeY = 0;
+    if (now < shakeUntil) {
+      const k = (shakeUntil - now) / 350;
+      shakeX = (Math.random() - 0.5) * 14 * k;
+      shakeY = (Math.random() - 0.5) * 14 * k;
+    }
+
     renderer.draw({
-      camX,
-      camY,
+      camX: camX + shakeX,
+      camY: camY + shakeY,
+      dt,
       scale: zoom,
       arenaW,
       arenaH,
