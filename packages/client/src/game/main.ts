@@ -9,7 +9,7 @@ import { createSettingsPanel } from './settings-panel';
 import { storage, sessionId } from '../storage';
 import { siteConfig, injectHtml, adLog, monetagZoneIn, isMonetagSdkCode } from '../site';
 import { loadPrefs, savePrefs } from '../prefs';
-import { telegram, tgAtLeast, loadMonetag, settle, type MonetagShow } from '../telegram';
+import { telegram, tgAtLeast, loadMonetag, settle, waitForAd, type MonetagShow } from '../telegram';
 
 export type ExitReason = 'menu' | 'connect' | 'full' | 'nickname';
 
@@ -322,18 +322,18 @@ export function startGame(opts: StartOptions): void {
     const first = show({ ymid: reviveId });
     // If the ad shows up late (after we fell back), still honour it.
     first.then(sendRevive, () => undefined);
-    let result = await settle(first, 8000);
-    adLog(`revive: interstitial ${result}`);
+    let outcome = await waitForAd(first, 8000, 45000);
+    adLog(`revive: interstitial ${outcome.result} (${outcome.detail})`);
     if (cancelled || done) return;
-    if (result !== 'ok' && cfg.ads.tgPopupFallback) {
+    if (outcome.result !== 'ok' && cfg.ads.tgPopupFallback) {
       adLog('revive: trying rewarded popup');
-      const second = show({ type: 'pop', ymid: reviveId });
+      const second = show('pop');
       second.then(sendRevive, () => undefined);
-      result = await settle(second, 5000);
-      adLog(`revive: popup ${result}`);
+      outcome = await waitForAd(second, 5000, 30000);
+      adLog(`revive: popup ${outcome.result} (${outcome.detail})`);
       if (cancelled || done) return;
     }
-    if (result === 'ok') return sendRevive();
+    if (outcome.result === 'ok') return sendRevive();
     // No ad from Monetag right now: fall back to the countdown revive so the player isn't stuck.
     reviveRing.classList.remove('spinning');
     showToast(t('noAd'));
