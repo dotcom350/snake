@@ -9,7 +9,7 @@ import { createSettingsPanel } from './settings-panel';
 import { storage, sessionId } from '../storage';
 import { siteConfig, injectHtml, adLog, monetagZoneIn, isMonetagSdkCode } from '../site';
 import { loadPrefs, savePrefs } from '../prefs';
-import { telegram, tgAtLeast, loadMonetag, type MonetagShow } from '../telegram';
+import { telegram, tgAtLeast, loadMonetag, settle, type MonetagShow } from '../telegram';
 
 export type ExitReason = 'menu' | 'connect' | 'full' | 'nickname';
 
@@ -182,6 +182,7 @@ export function startGame(opts: StartOptions): void {
   let lastMass = 0;
   let wasBoosting = false;
   let shakeUntil = 0;
+  let deathAtMs = 0;
   let foodMap = '';
   let leader: [number, number] | null = null;
   const vibrate = (ms: number) => {
@@ -245,7 +246,7 @@ export function startGame(opts: StartOptions): void {
   };
 
   /** Shows the revive ad with a countdown, then asks the server to bring the snake back. */
-  const startRevive = () => {
+  const startRevive = (seconds?: number) => {
     const ads = cfg.ads;
     hidePanel();
     revive.hidden = false;
@@ -253,7 +254,7 @@ export function startGame(opts: StartOptions): void {
     reviveText.textContent = t('reviveHint', { p: Math.round(ads.revivePercent) });
     const reviveBox = adBox(ads.reviveCode, 'revive', '300×250');
     if (reviveBox) reviveAd.replaceChildren(reviveBox);
-    const total = Math.max(0, ads.reviveSeconds);
+    const total = Math.max(0, seconds ?? ads.reviveSeconds);
     const endsAt = performance.now() + total * 1000;
     const tickRevive = () => {
       const left = Math.max(0, Math.ceil((endsAt - performance.now()) / 1000));
@@ -272,50 +273,73 @@ export function startGame(opts: StartOptions): void {
     tickRevive();
     reviveTimer = window.setInterval(tickRevive, 250);
   };
-  /** Telegram: Monetag rewarded interstitial; the server may also wait for Monetag's postback. */
+  /**
+   * Revive with Monetag's rewarded ad. The SDK may never answer when it has no ad, so every step
+   * has a time limit; if nothing shows, the normal countdown revive takes over.
+   */
   const reviveWithTelegramAd = async (reviveId: string) => {
     if (!monetag) return startRevive();
+    const show = monetag;
+    let done = false;
+    let cancelled = false;
     hidePanel();
-    showStatus(t('reviving'));
-    adLog(`revive: show rewarded interstitial (ymid=${reviveId})`);
-    try {
-      await monetag({ ymid: reviveId });
-      adLog('revive: rewarded interstitial finished');
-    } catch (e) {
-      adLog(`revive: interstitial failed: ${String(e)}`);
-      let watched = false;
-      if (cfg.ads.tgPopupFallback) {
-        try {
-          adLog('revive: trying rewarded popup');
-          await monetag({ type: 'pop', ymid: reviveId });
-          watched = true;
-          adLog('revive: rewarded popup finished');
-        } catch (e2) {
-          adLog(`revive: popup failed: ${String(e2)}`);
-          watched = false;
-        }
-      }
-      if (!watched) {
-        // No ad from Monetag right now: fall back to the countdown revive so the player isn't stuck.
-        showStatus(null);
-        showToast(t('noAd'));
-        startRevive();
-        return;
-      }
-    }
-    // Retry for a while in case the server is waiting for the postback.
-    let tries = 0;
-    const attempt = () => {
-      if (alive || closed) return;
-      if (tries++ >= 10) {
-        showStatus(null);
-        if (lastDeath) showPanel(lastDeath.title, t('reviveFailed'), t('playAgain'), playAgain, lastDeath.stats);
-        return;
-      }
-      net.revive('tma');
-      window.setTimeout(attempt, 1500);
+    revive.hidden = false;
+    syncBackdrop();
+    reviveTitle.textContent = t('reviving');
+    reviveRing.hidden = false;
+    reviveRing.classList.add('spinning');
+    reviveCount.textContent = '';
+    reviveText.textContent = t('loadingAd');
+    reviveAd.replaceChildren();
+    reviveCancel.onclick = () => {
+      cancelled = true;
+      reviveRing.classList.remove('spinning');
+      reviveCancel.onclick = cancelRevive;
+      cancelRevive();
     };
-    attempt();
+
+    const sendRevive = () => {
+      if (done || alive || closed) return;
+      done = true;
+      reviveRing.classList.remove('spinning');
+      reviveCancel.onclick = cancelRevive;
+      // Retry for a while in case the server is waiting for Monetag's postback.
+      let tries = 0;
+      const attempt = () => {
+        if (alive || closed) return;
+        if (tries++ >= 10) {
+          closeRevive();
+          if (lastDeath) showPanel(lastDeath.title, t('reviveFailed'), t('playAgain'), playAgain, lastDeath.stats);
+          return;
+        }
+        net.revive('tma');
+        window.setTimeout(attempt, 1500);
+      };
+      attempt();
+    };
+
+    adLog(`revive: show rewarded interstitial (ymid=${reviveId})`);
+    const first = show({ ymid: reviveId });
+    // If the ad shows up late (after we fell back), still honour it.
+    first.then(sendRevive, () => undefined);
+    let result = await settle(first, 8000);
+    adLog(`revive: interstitial ${result}`);
+    if (cancelled || done) return;
+    if (result !== 'ok' && cfg.ads.tgPopupFallback) {
+      adLog('revive: trying rewarded popup');
+      const second = show({ type: 'pop', ymid: reviveId });
+      second.then(sendRevive, () => undefined);
+      result = await settle(second, 5000);
+      adLog(`revive: popup ${result}`);
+      if (cancelled || done) return;
+    }
+    if (result === 'ok') return sendRevive();
+    // No ad from Monetag right now: fall back to the countdown revive so the player isn't stuck.
+    reviveRing.classList.remove('spinning');
+    showToast(t('noAd'));
+    // Only wait what is left of the server's minimum time since the death.
+    const left = cfg.ads.reviveSeconds - (performance.now() - deathAtMs) / 1000;
+    startRevive(Math.max(2, Math.ceil(left) + 1));
   };
 
   const cancelRevive = () => {
@@ -392,10 +416,10 @@ export function startGame(opts: StartOptions): void {
     storage.set('plays', String(plays + 1));
     if (monetag && ads.tgPreroll && plays % Math.max(1, ads.playEvery) === 0) {
       adLog('pre-game: show rewarded interstitial');
-      monetag()
-        .then(() => adLog('pre-game ad finished'))
-        .catch((e: unknown) => adLog(`pre-game ad failed: ${String(e)}`))
-        .finally(go);
+      void settle(monetag(), 8000).then((r) => {
+        adLog(`pre-game ad: ${r}`);
+        go();
+      });
       return;
     }
     const active = (ads.enabled && ads.playCode) || adTest;
@@ -483,6 +507,7 @@ export function startGame(opts: StartOptions): void {
       case 'died': {
         alive = false;
         deaths++;
+        deathAtMs = performance.now();
         sound.death();
         vibrate(120);
         shakeUntil = performance.now() + 350;

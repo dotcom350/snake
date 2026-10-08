@@ -82,6 +82,23 @@ export function tgAtLeast(app: TelegramWebApp, version: string): boolean {
   }
 }
 
+/** Waits for a promise but gives up after `ms`; Monetag's SDK may never settle when it has no ad. */
+export function settle(p: Promise<unknown>, ms: number): Promise<'ok' | 'error' | 'timeout'> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve('timeout'), ms);
+    p.then(
+      () => {
+        clearTimeout(timer);
+        resolve('ok');
+      },
+      () => {
+        clearTimeout(timer);
+        resolve('error');
+      }
+    );
+  });
+}
+
 /** Monetag's Telegram SDK exposes a global show_<zone>() that resolves once the ad has been watched. */
 export type MonetagShow = (options?: Record<string, unknown> | string) => Promise<unknown>;
 

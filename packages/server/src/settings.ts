@@ -40,13 +40,44 @@ export async function loadSettings(): Promise<void> {
   version++;
 }
 
+const SDK_CODE = /show_\d{4,}\s*\(|libtl\.com/;
+const VIGNETTE_TAG = /<script[^>]*>[^<]*vignette\.min\.js[^<]*<\/script>/gi;
+
+/**
+ * One-time cleanup of ad codes saved by earlier versions:
+ * - Monetag SDK sample code in the revive / pre-game fields (the game now drives the SDK itself),
+ * - Vignette tags (they only show on page navigation) kept once, in <head>,
+ * - Telegram pre-game ad off (the In-App Interstitial already covers it).
+ */
+function cleanAds(ads: AllSettings['ads']): AllSettings['ads'] {
+  const out = { ...ads };
+  if (SDK_CODE.test(out.reviveCode)) out.reviveCode = '';
+  if (SDK_CODE.test(out.playCode)) out.playCode = '';
+  let vignette = '';
+  for (const key of ['headCode', 'landingCode', 'deathCode', 'reviveCode', 'playCode'] as const) {
+    const found = out[key].match(VIGNETTE_TAG);
+    if (found && !vignette) vignette = found[0];
+    out[key] = out[key].replace(VIGNETTE_TAG, '').trim();
+  }
+  if (vignette) out.headCode = `${out.headCode}\n${vignette}`.trim();
+  out.tgPreroll = false;
+  return out;
+}
+
 /** Makes sure values the server owns (like the postback secret) exist. */
 export async function ensureGeneratedSettings(): Promise<void> {
-  const flag = await query<{ n: string }>("SELECT count(*)::text AS n FROM app_settings WHERE key = 'internal.tgDefaults'");
-  const applyTgDefaults = Number(flag[0]?.n ?? 0) === 0;
-  if (current.ads.postbackSecret && !applyTgDefaults) return;
+  const flags = await query<{ key: string }>(
+    "SELECT key FROM app_settings WHERE key IN ('internal.tgDefaults', 'internal.adsCleanup1')"
+  );
+  const applyTgDefaults = !flags.some((f) => f.key === 'internal.tgDefaults');
+  const applyCleanup = !flags.some((f) => f.key === 'internal.adsCleanup1');
+  if (current.ads.postbackSecret && !applyTgDefaults && !applyCleanup) return;
   const { randomBytes } = await import('crypto');
-  const ads = { ...current.ads };
+  let ads = { ...current.ads };
+  if (applyCleanup) {
+    ads = cleanAds(ads);
+    await query("INSERT INTO app_settings (key, value) VALUES ('internal.adsCleanup1', 'true'::jsonb) ON CONFLICT (key) DO NOTHING");
+  }
   if (!ads.postbackSecret) ads.postbackSecret = randomBytes(18).toString('base64url');
   if (applyTgDefaults) {
     // Fill the Telegram zone once for installs that saved settings before it existed; never overwrite a choice.
