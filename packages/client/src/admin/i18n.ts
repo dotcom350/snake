@@ -349,6 +349,15 @@ const en = {
   copied: 'Copied',
   platform: 'Platform (games)',
   postbackRevenue: 'Postback (Telegram)',
+  tgPopupFallback: 'If the rewarded ad fails, try the Rewarded Popup',
+  tgInApp: 'Automatic In-App Interstitial while the Mini App is open',
+  tgInAppFrequency: 'Ads per session',
+  tgInAppCapping: 'Session length (hours)',
+  tgInAppInterval: 'Seconds between ads',
+  tgInAppTimeout: 'Seconds before the first ad',
+  tgInAppEveryPage: 'Restart the session on every page',
+  tgPreroll: 'Rewarded ad before games (every N games, see "Ad before playing")',
+  tgFormats: 'Revive uses the Rewarded Interstitial (show_ZONE()), with the Rewarded Popup (show_ZONE("pop")) as backup. The In-App Interstitial starts by itself when the Mini App opens.',
 };
 
 const es: typeof en = {
@@ -702,6 +711,15 @@ const es: typeof en = {
   copied: 'Copiado',
   platform: 'Plataforma (partidas)',
   postbackRevenue: 'Postback (Telegram)',
+  tgPopupFallback: 'Si falla el anuncio con recompensa, probar el Rewarded Popup',
+  tgInApp: 'In-App Interstitial automático mientras la Mini App está abierta',
+  tgInAppFrequency: 'Anuncios por sesión',
+  tgInAppCapping: 'Duración de la sesión (horas)',
+  tgInAppInterval: 'Segundos entre anuncios',
+  tgInAppTimeout: 'Segundos antes del primer anuncio',
+  tgInAppEveryPage: 'Reiniciar la sesión en cada página',
+  tgPreroll: 'Anuncio con recompensa antes de jugar (cada N partidas, ver "Anuncio antes de jugar")',
+  tgFormats: 'Revivir usa el Rewarded Interstitial (show_ZONA()) y, si falla, el Rewarded Popup (show_ZONA("pop")). El In-App Interstitial empieza solo al abrir la Mini App.',
 };
 
 export type Key = keyof typeof en;

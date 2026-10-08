@@ -16,7 +16,24 @@ export async function render(root: HTMLElement): Promise<void> {
       ads[k] = v;
       changed();
     };
-    const num = <K extends 'deathEvery' | 'reviveSeconds' | 'revivePercent' | 'reviveMax' | 'estimatedCpm' | 'playEvery' | 'playSkipSeconds'>(k: K, min: number, step = 1) => {
+    const num = <
+      K extends
+        | 'deathEvery'
+        | 'reviveSeconds'
+        | 'revivePercent'
+        | 'reviveMax'
+        | 'estimatedCpm'
+        | 'playEvery'
+        | 'playSkipSeconds'
+        | 'tgInAppFrequency'
+        | 'tgInAppCapping'
+        | 'tgInAppInterval'
+        | 'tgInAppTimeout',
+    >(
+      k: K,
+      min: number,
+      step = 1
+    ) => {
       const i = numberInput(ads[k], { min, step });
       i.addEventListener('input', () => {
         if (i.value !== '') set(k, Number(i.value) as (typeof ads)[K]);
@@ -120,7 +137,20 @@ export async function render(root: HTMLElement): Promise<void> {
           )
         ),
         field(t('postbackUrl'), h('div', { class: 'row nowrap' }, postbackInput, copyBtn)),
-        h('p', { class: 'muted small' }, t('postbackHelp'))
+        h('p', { class: 'muted small' }, t('postbackHelp')),
+        h('p', { class: 'muted small' }, t('tgFormats')),
+        h('label', { class: 'switch-row' }, toggle(ads.tgPopupFallback, (v) => set('tgPopupFallback', v)), t('tgPopupFallback')),
+        h('label', { class: 'switch-row' }, toggle(ads.tgPreroll, (v) => set('tgPreroll', v)), t('tgPreroll')),
+        h('label', { class: 'switch-row' }, toggle(ads.tgInApp, (v) => set('tgInApp', v)), h('strong', null, t('tgInApp'))),
+        h(
+          'div',
+          { class: 'row2' },
+          field(t('tgInAppFrequency'), num('tgInAppFrequency', 1)),
+          field(t('tgInAppCapping'), num('tgInAppCapping', 0.01, 0.05)),
+          field(t('tgInAppInterval'), num('tgInAppInterval', 0)),
+          field(t('tgInAppTimeout'), num('tgInAppTimeout', 0))
+        ),
+        h('label', { class: 'switch-row' }, toggle(ads.tgInAppEveryPage, (v) => set('tgInAppEveryPage', v)), t('tgInAppEveryPage'))
       ),
       h(
         'div',

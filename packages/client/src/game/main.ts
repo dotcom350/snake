@@ -273,10 +273,21 @@ export function startGame(opts: StartOptions): void {
     try {
       await monetag({ ymid: reviveId });
     } catch {
-      showStatus(null);
-      showToast(t('noAd'));
-      if (lastDeath) showPanel(lastDeath.title, lastDeath.text, t('playAgain'), playAgain, lastDeath.stats);
-      return;
+      let watched = false;
+      if (cfg.ads.tgPopupFallback) {
+        try {
+          await monetag({ type: 'pop', ymid: reviveId });
+          watched = true;
+        } catch {
+          watched = false;
+        }
+      }
+      if (!watched) {
+        showStatus(null);
+        showToast(t('noAd'));
+        if (lastDeath) showPanel(lastDeath.title, lastDeath.text, t('playAgain'), playAgain, lastDeath.stats);
+        return;
+      }
     }
     // Retry for a while in case the server is waiting for the postback.
     let tries = 0;
@@ -363,12 +374,12 @@ export function startGame(opts: StartOptions): void {
     const ads = cfg.ads;
     const plays = Number(storage.get('plays') ?? 0);
     storage.set('plays', String(plays + 1));
-    if (monetag && plays % Math.max(1, ads.playEvery) === 0) {
+    if (monetag && ads.tgPreroll && plays % Math.max(1, ads.playEvery) === 0) {
       monetag().catch(() => undefined).finally(go);
       return;
     }
     const active = (ads.enabled && ads.playCode) || adTest;
-    if (!active || plays % Math.max(1, ads.playEvery) !== 0) return go();
+    if (!active || plays % Math.max(1, ads.playEvery) !== 0 || (tg && ads.tgHideWebAds && !adTest)) return go();
     const box = adBox(ads.playCode, 'play', '728×90 / 300×250');
     if (!box) return go();
     hidePanel();

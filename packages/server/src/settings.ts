@@ -42,9 +42,17 @@ export async function loadSettings(): Promise<void> {
 
 /** Makes sure values the server owns (like the postback secret) exist. */
 export async function ensureGeneratedSettings(): Promise<void> {
-  if (current.ads.postbackSecret) return;
+  const flag = await query<{ n: string }>("SELECT count(*)::text AS n FROM app_settings WHERE key = 'internal.tgDefaults'");
+  const applyTgDefaults = Number(flag[0]?.n ?? 0) === 0;
+  if (current.ads.postbackSecret && !applyTgDefaults) return;
   const { randomBytes } = await import('crypto');
-  const ads = { ...current.ads, postbackSecret: randomBytes(18).toString('base64url') };
+  const ads = { ...current.ads };
+  if (!ads.postbackSecret) ads.postbackSecret = randomBytes(18).toString('base64url');
+  if (applyTgDefaults) {
+    // Fill the Telegram zone once for installs that saved settings before it existed; never overwrite a choice.
+    if (!ads.tgZone) ads.tgZone = DEFAULT_SETTINGS.ads.tgZone;
+    await query("INSERT INTO app_settings (key, value) VALUES ('internal.tgDefaults', 'true'::jsonb) ON CONFLICT (key) DO NOTHING");
+  }
   await query(
     `INSERT INTO app_settings (key, value, updated_at) VALUES ('settings.ads', $1, (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint)
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`,

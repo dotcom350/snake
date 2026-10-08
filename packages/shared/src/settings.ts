@@ -123,6 +123,14 @@ export const AdsSchema: z.ZodType<AdSettings> = z.object({
   tgVerify: z.boolean(),
   tgHideWebAds: z.boolean(),
   postbackSecret: z.string().regex(/^[A-Za-z0-9_-]{0,64}$/),
+  tgPopupFallback: z.boolean(),
+  tgInApp: z.boolean(),
+  tgInAppFrequency: z.number().int().min(1).max(100),
+  tgInAppCapping: z.number().min(0.01).max(24),
+  tgInAppInterval: z.number().int().min(0).max(3600),
+  tgInAppTimeout: z.number().int().min(0).max(600),
+  tgInAppEveryPage: z.boolean(),
+  tgPreroll: z.boolean(),
   adsTxt: z.string().max(20000),
 });
 

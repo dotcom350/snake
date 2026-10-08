@@ -3,7 +3,7 @@ import { isValidNickname, normalizeNickname } from '@snake/shared/protocol';
 import { storage } from './storage';
 import { siteConfig } from './site';
 import { loadPrefs, savePrefs } from './prefs';
-import { isTelegram, loadTelegram } from './telegram';
+import { isTelegram, loadTelegram, loadMonetag } from './telegram';
 
 type Locale = 'en' | 'es';
 
@@ -28,6 +28,13 @@ if (inTelegram) {
     app.setBottomBarColor?.('#070a14');
     // Stops the "swipe down to close" gesture from fighting with the joystick.
     app.disableVerticalSwipes?.();
+    const ads = siteConfig().ads;
+    if (ads.tgZone) {
+      void loadMonetag(ads.tgZone).then((show) => {
+        // Monetag In-App Interstitial: the SDK schedules these ads by itself.
+        if (show && ads.tgInApp) show({ type: 'inApp', inAppSettings: ads.tgInApp }).catch(() => undefined);
+      });
+    }
     const user = app.initDataUnsafe.user;
     if (!storage.get('lang') && locale === 'en' && location.pathname === '/' && /^es/i.test(user?.language_code ?? '')) {
       location.replace(`/es/${location.search}${location.hash}`);

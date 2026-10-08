@@ -111,7 +111,7 @@ export async function registerPages(fastify: FastifyInstance, publicDir: string)
       stats.pageview(request, page.lang);
       if (s.ads.enabled && s.ads.landingCode) stats.inc('ad_impression', 'landing');
       const nonce = randomBytes(16).toString('base64');
-      reply.header('Content-Security-Policy', publicCsp(nonce, s.ads.enabled));
+      reply.header('Content-Security-Policy', publicCsp(nonce, s.ads.enabled || !!s.ads.tgZone));
       // X-Frame-Options can't list Telegram; the CSP frame-ancestors above replaces it.
       reply.removeHeader('X-Frame-Options');
       return send(request, reply, html.replaceAll('<script', `<script nonce="${nonce}"`));
