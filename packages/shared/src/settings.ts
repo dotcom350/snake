@@ -105,6 +105,20 @@ export const AdsSchema: z.ZodType<AdSettings> = z.object({
   reviveMax: z.number().int().min(0).max(1000),
   estimatedCpm: z.number().min(0).max(100000),
   currency: z.string().trim().min(1).max(8),
+  playCode: z.string().max(20000),
+  playEvery: z.number().int().min(1).max(1000),
+  playSkipSeconds: z.number().int().min(0).max(120),
+  rootFiles: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\.(js|txt|xml|json)$/)
+          .refine((n) => !['ads.txt', 'robots.txt', 'sitemap.xml'].includes(n.toLowerCase())),
+        content: z.string().max(200000),
+      })
+    )
+    .max(20),
   adsTxt: z.string().max(20000),
 });
 

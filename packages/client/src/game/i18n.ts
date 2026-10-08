@@ -45,6 +45,9 @@ const en = {
   reviveHint: 'Thanks for watching! Your snake comes back with {p}% of its length.',
   cancel: 'Cancel',
   reviveFailed: "Couldn't revive. Start a new game.",
+  adSkipIn: 'You can play in {s}s',
+  adPlay: 'Play ▶',
+  adPreview: 'Ad space · {slot}',
 };
 
 const es: typeof en = {
@@ -94,6 +97,9 @@ const es: typeof en = {
   reviveHint: '¡Gracias por mirar! Tu serpiente vuelve con el {p}% de su longitud.',
   cancel: 'Cancelar',
   reviveFailed: 'No se pudo revivir. Empieza una partida nueva.',
+  adSkipIn: 'Puedes jugar en {s} s',
+  adPlay: 'Jugar ▶',
+  adPreview: 'Espacio de anuncio · {slot}',
 };
 
 export type GameStringKey = keyof typeof en;

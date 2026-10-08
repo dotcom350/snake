@@ -118,6 +118,12 @@ export interface AdSettings {
   /** Estimated earnings per 1000 ad impressions, used until real revenue is entered. */
   estimatedCpm: number;
   currency: string;
+  /** Ad shown before a game starts (skippable), every N games. */
+  playCode: string;
+  playEvery: number;
+  playSkipSeconds: number;
+  /** Extra files served from the site root, e.g. Monetag's sw.js for push ads. */
+  rootFiles: RootFile[];
   /** <meta name="…" content="…"> tags for site verification (Monetag, Google…); always added to <head>. */
   verifyTags: string;
   headCode: string;
@@ -125,6 +131,11 @@ export interface AdSettings {
   deathCode: string;
   deathEvery: number;
   adsTxt: string;
+}
+
+export interface RootFile {
+  name: string;
+  content: string;
 }
 
 export interface GeneralSettings {
@@ -233,6 +244,10 @@ export const DEFAULT_SETTINGS: AllSettings = {
     reviveMax: 1,
     estimatedCpm: 1.5,
     currency: 'USD',
+    playCode: '',
+    playEvery: 3,
+    playSkipSeconds: 5,
+    rootFiles: [],
     verifyTags: '',
     headCode: '',
     landingCode: '',
@@ -249,7 +264,18 @@ export const DEFAULT_SETTINGS: AllSettings = {
 export interface PublicConfig {
   appearance: Omit<Appearance, 'landingAccent' | 'landingAccent2' | 'landingBackground'>;
   sound: SoundSettings;
-  ads: { enabled: boolean; deathCode: string; deathEvery: number; reviveEnabled: boolean; reviveCode: string; reviveSeconds: number; revivePercent: number };
+  ads: {
+    enabled: boolean;
+    deathCode: string;
+    deathEvery: number;
+    reviveEnabled: boolean;
+    reviveCode: string;
+    reviveSeconds: number;
+    revivePercent: number;
+    playCode: string;
+    playEvery: number;
+    playSkipSeconds: number;
+  };
 }
 
 const META_TAG = /<meta\s+(?:name|property)\s*=\s*["']([A-Za-z0-9_.:-]{1,64})["']\s+content\s*=\s*["']([^"'<>]{1,512})["']\s*\/?>/gi;
@@ -275,6 +301,9 @@ export function toPublicConfig(s: AllSettings): PublicConfig {
       reviveCode: s.ads.enabled ? s.ads.reviveCode : '',
       reviveSeconds: s.ads.reviveSeconds,
       revivePercent: s.ads.revivePercent,
+      playCode: s.ads.enabled ? s.ads.playCode : '',
+      playEvery: s.ads.playEvery,
+      playSkipSeconds: s.ads.playSkipSeconds,
     },
   };
 }

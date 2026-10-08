@@ -326,6 +326,17 @@ const en = {
   noTracks: 'No songs yet — the generated music plays instead.',
   vsPrev: 'vs previous period',
   overview: 'Overview',
+  playAdTitle: 'Ad before playing',
+  playCode: 'Ad shown before a game starts (the player can skip it after a few seconds)',
+  playEvery: 'Show it every N games',
+  playSkip: 'Seconds before "Play" is enabled',
+  rootFilesTitle: 'Files at the site root',
+  rootFilesHelp: 'Some formats ask you to upload a file to the root of your site (e.g. Monetag Push asks for sw.js). Add it here: it will be served at https://your-domain/<name>.',
+  fileName: 'File name',
+  fileContent: 'Content',
+  addFile: 'Add file',
+  testAds: 'Test ad spaces',
+  testAdsHelp: 'Opens the site with ?adtest=1: empty spaces show a dashed box so you can see where each ad appears.',
 };
 
 const es: typeof en = {
@@ -656,6 +667,17 @@ const es: typeof en = {
   noTracks: 'Aún no hay canciones: suena la música generada.',
   vsPrev: 'vs periodo anterior',
   overview: 'Resumen',
+  playAdTitle: 'Anuncio antes de jugar',
+  playCode: 'Anuncio que se muestra antes de empezar una partida (se puede saltar tras unos segundos)',
+  playEvery: 'Mostrarlo cada N partidas',
+  playSkip: 'Segundos hasta que se activa "Jugar"',
+  rootFilesTitle: 'Archivos en la raíz del sitio',
+  rootFilesHelp: 'Algunos formatos piden subir un archivo a la raíz del sitio (p. ej. Monetag Push pide sw.js). Añádelo aquí: se servirá en https://tu-dominio/<nombre>.',
+  fileName: 'Nombre del archivo',
+  fileContent: 'Contenido',
+  addFile: 'Añadir archivo',
+  testAds: 'Probar espacios de anuncios',
+  testAdsHelp: 'Abre la web con ?adtest=1: los espacios vacíos muestran un recuadro para que veas dónde sale cada anuncio.',
 };
 
 export type Key = keyof typeof en;

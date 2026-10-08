@@ -76,57 +76,142 @@ async function initSkinPicker(): Promise<void> {
   const choices = skins.map((s, i) => ({ s, i })).filter((x) => x.s.enabled);
   if (!choices.length) return;
   const { drawSkinPreview } = await import('./game/skins');
-  const stage = picker.querySelector<HTMLDivElement>('.carousel-stage')!;
-  const main = picker.querySelector<HTMLCanvasElement>('.c-main')!;
-  const prevC = picker.querySelector<HTMLCanvasElement>('.c-prev')!;
-  const nextC = picker.querySelector<HTMLCanvasElement>('.c-next')!;
+  const carousel = picker.querySelector<HTMLDivElement>('.carousel')!;
+  const cards = Array.from(picker.querySelectorAll<HTMLDivElement>('.cv-card'));
+  const canvases = cards.map((c) => c.querySelector('canvas')!);
   const name = picker.querySelector<HTMLSpanElement>('.skin-name')!;
-  const dots = picker.querySelector<HTMLSpanElement>('.skin-dots');
+  const counter = picker.querySelector<HTMLSpanElement>('.skin-dots');
   const prefs = loadPrefs();
-  let pos = Math.max(0, choices.findIndex((c) => c.i === prefs.skin));
-  const at = (k: number) => choices[(k + choices.length) % choices.length].s;
+  const n = choices.length;
+  const wrap = (k: number) => ((k % n) + n) % n;
 
-  const select = (next: number, dir = 0) => {
-    pos = (next + choices.length) % choices.length;
-    name.textContent = choices[pos].s.name;
-    prefs.skin = choices[pos].i;
+  // `pos` is continuous: it follows the finger while dragging and eases to an integer afterwards.
+  let pos = Math.max(0, choices.findIndex((c) => c.i === prefs.skin));
+  let target = pos;
+  let selected = -1;
+
+  const commit = () => {
+    const idx = wrap(Math.round(target));
+    if (idx === selected) return;
+    selected = idx;
+    name.textContent = choices[idx].s.name;
+    if (counter) counter.textContent = `${idx + 1} / ${n}`;
+    prefs.skin = choices[idx].i;
     savePrefs(prefs);
-    if (dots) dots.textContent = `${pos + 1} / ${choices.length}`;
-    if (dir) {
-      stage.classList.remove('slide-left', 'slide-right');
-      void stage.offsetWidth;
-      stage.classList.add(dir > 0 ? 'slide-left' : 'slide-right');
-    }
   };
-  for (const b of picker.querySelectorAll<HTMLButtonElement>('.skin-nav')) {
-    b.addEventListener('click', () => select(pos + Number(b.dataset.dir), Number(b.dataset.dir)));
-  }
-  prevC.addEventListener('click', () => select(pos - 1, -1));
-  nextC.addEventListener('click', () => select(pos + 1, 1));
-  let startX = 0;
-  stage.addEventListener('pointerdown', (e) => (startX = e.clientX));
-  stage.addEventListener('pointerup', (e) => {
-    const dx = e.clientX - startX;
-    if (Math.abs(dx) > 30) select(pos + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
-  });
-  select(pos);
+  commit();
   picker.hidden = false;
 
+  let dragging = false;
+  let startX = 0;
+  let startPos = 0;
+  let lastX = 0;
+  let lastT = 0;
+  let velocity = 0;
+  let moved = 0;
+
+  const cardWidth = () => carousel.clientWidth * 0.42;
+
+  carousel.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    moved = 0;
+    startX = lastX = e.clientX;
+    lastT = performance.now();
+    startPos = pos;
+    velocity = 0;
+    carousel.setPointerCapture(e.pointerId);
+    carousel.classList.add('dragging');
+  });
+  carousel.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const now = performance.now();
+    const dx = e.clientX - startX;
+    moved = Math.max(moved, Math.abs(dx));
+    pos = startPos - dx / cardWidth();
+    target = pos;
+    velocity = (-(e.clientX - lastX) / cardWidth()) / Math.max(1, now - lastT);
+    lastX = e.clientX;
+    lastT = now;
+    commit();
+  });
+  const release = (e: PointerEvent) => {
+    if (!dragging) return;
+    dragging = false;
+    carousel.classList.remove('dragging');
+    if (moved < 6) {
+      // A tap on a side card brings it to the centre.
+      const rect = carousel.getBoundingClientRect();
+      const rel = (e.clientX - rect.left) / rect.width - 0.5;
+      target = Math.round(pos) + (rel > 0.22 ? 1 : rel < -0.22 ? -1 : 0);
+    } else {
+      target = Math.round(pos + Math.max(-3, Math.min(3, velocity * 220)));
+    }
+    commit();
+  };
+  carousel.addEventListener('pointerup', release);
+  carousel.addEventListener('pointercancel', release);
+  carousel.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      target = Math.round(target) + (e.key === 'ArrowRight' ? 1 : -1);
+      commit();
+    }
+  });
+  carousel.addEventListener(
+    'wheel',
+    (e) => {
+      if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      target = Math.round(target + Math.sign(e.deltaX));
+      commit();
+    },
+    { passive: false }
+  );
+
   let frame = 0;
+  let last = performance.now();
   const animate = (time: number) => {
     requestAnimationFrame(animate);
     if (document.hidden || document.body.classList.contains('in-game')) return;
-    drawSkinPreview(main, at(pos), time);
-    // Side snakes are smaller and less important: redraw them at half the rate.
-    if (frame++ % 2 === 0) {
-      drawSkinPreview(prevC, at(pos - 1), time);
-      drawSkinPreview(nextC, at(pos + 1), time);
-    }
+    const dt = Math.min(0.05, (time - last) / 1000);
+    last = time;
+    if (!dragging) pos += (target - pos) * Math.min(1, dt * 10);
+
+    const base = Math.round(pos);
+    cards.forEach((card, i) => {
+      const slot = i - 2;
+      const d = base + slot - pos;
+      const a = Math.abs(d);
+      const bob = slot === 0 ? Math.sin(time / 520) * 5 * Math.max(0, 1 - a * 2) : 0;
+      card.style.transform = `translateX(${d * 62}%) translateY(${bob}px) translateZ(${-a * 140}px) rotateY(${-d * 32}deg) scale(${1 - Math.min(a, 2) * 0.12})`;
+      card.style.opacity = String(Math.max(0, 1 - a * 0.38));
+      card.style.zIndex = String(10 - Math.round(a * 2));
+      card.classList.toggle('center', a < 0.5);
+      // Centre card every frame, the others every other frame.
+      if (a < 0.5 || frame % 2 === 0) drawSkinPreview(canvases[i], choices[wrap(base + slot)].s, time);
+    });
+    frame++;
   };
   requestAnimationFrame(animate);
 }
 
 void initSkinPicker();
+
+// ?adtest=1 marks the landing ad space so the admin can see where it appears.
+if (/[?&]adtest=1/.test(location.search) && !document.querySelector('.ad-landing')) {
+  const label = locale === 'es' ? 'Publicidad' : 'Advertisement';
+  const band = document.createElement('section');
+  band.className = 'ad-band';
+  const slot = document.createElement('div');
+  slot.className = 'ad-slot ad-landing';
+  slot.dataset.label = label;
+  const preview = document.createElement('div');
+  preview.className = 'ad-preview';
+  preview.textContent = `${label} · landing · 728×90`;
+  slot.append(preview);
+  band.append(slot);
+  document.querySelector('.hero')?.after(band);
+}
 
 async function showOnlineCount(): Promise<void> {
   const el = document.getElementById('online');

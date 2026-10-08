@@ -39,6 +39,10 @@ async function main() {
   await fastify.register(fastifyHelmet, {
     crossOriginResourcePolicy: false,
     hsts: false,
+    // Ad networks check the referring domain; "no-referrer" makes them refuse or not count impressions.
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    // Popunder/interstitial formats open windows and need to keep the opener.
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
     contentSecurityPolicy: {
       directives: {
         upgradeInsecureRequests: null,

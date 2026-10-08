@@ -978,3 +978,15 @@ svg.nav-icon {
 .kpi-value {
   white-space: nowrap;
 }
+
+.root-file {
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.root-file .row .field {
+  flex: 1;
+  margin-bottom: 8px;
+}

@@ -311,153 +311,118 @@ h1 span {
 }
 
 .carousel {
-  display: grid;
-  grid-template-columns: 40px 1fr 40px;
-  align-items: center;
-  gap: 6px;
+  position: relative;
+  height: 150px;
+  margin: 0 -8px;
+  overflow: hidden;
+  perspective: 900px;
+  perspective-origin: 50% 40%;
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
 }
 
-.carousel-stage {
-  position: relative;
-  height: 128px;
-  perspective: 700px;
-  transform-style: preserve-3d;
-  touch-action: pan-y;
+.carousel.dragging {
+  cursor: grabbing;
+}
+
+.carousel:focus-visible {
+  box-shadow: 0 0 0 2px rgba(63, 224, 255, 0.5);
+  border-radius: 16px;
 }
 
 .carousel-glow {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: 70%;
-  height: 70%;
+  top: 46%;
+  width: 60%;
+  height: 80%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(63, 224, 255, 0.22), transparent);
+  background: radial-gradient(closest-side, rgba(63, 224, 255, 0.28), transparent);
   transform: translate(-50%, -50%);
-  filter: blur(6px);
+  filter: blur(8px);
+  pointer-events: none;
 }
 
-.carousel-stage canvas {
+.cv-card {
   position: absolute;
-  top: 50%;
-  display: block;
-  border-radius: 16px;
-  cursor: pointer;
-}
-
-.c-main {
   left: 50%;
-  z-index: 2;
-  width: 68%;
-  height: 92px;
-  border: 1px solid rgba(63, 224, 255, 0.35);
-  background: radial-gradient(120% 100% at 50% 30%, rgba(63, 224, 255, 0.12), rgba(11, 17, 34, 0.92));
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 0 0 4px rgba(63, 224, 255, 0.06);
-  transform: translate(-50%, -50%) translateZ(40px);
-  animation: float 3.2s ease-in-out infinite;
+  top: 50%;
+  width: 58%;
+  height: 96px;
+  margin: -48px 0 0 -29%;
+  border: 1px solid rgba(160, 190, 255, 0.16);
+  border-radius: 18px;
+  background: radial-gradient(120% 100% at 50% 20%, rgba(63, 224, 255, 0.1), rgba(11, 17, 34, 0.94));
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
-.c-side {
-  z-index: 1;
-  width: 42%;
-  height: 70px;
-  border: 1px solid var(--card-border);
-  background: rgba(11, 17, 34, 0.85);
-  opacity: 0.55;
-  filter: saturate(0.8);
-  transition: opacity 0.2s;
+.cv-card.center {
+  border-color: rgba(63, 224, 255, 0.55);
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(63, 224, 255, 0.08), 0 0 34px rgba(63, 224, 255, 0.2);
 }
 
-.c-side:hover {
-  opacity: 0.85;
-}
-
-.c-prev {
-  left: 0;
-  transform: translateY(-50%) rotateY(38deg) scale(0.86);
-  transform-origin: left center;
-}
-
-.c-next {
-  right: 0;
-  transform: translateY(-50%) rotateY(-38deg) scale(0.86);
-  transform-origin: right center;
+.cv-card canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .carousel-shadow {
   position: absolute;
   left: 50%;
-  bottom: 2px;
-  width: 52%;
+  bottom: 4px;
+  width: 46%;
   height: 12px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.6), transparent);
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.65), transparent);
   transform: translateX(-50%);
+  pointer-events: none;
   animation: shadow 3.2s ease-in-out infinite;
-}
-
-@keyframes float {
-  50% {
-    transform: translate(-50%, calc(-50% - 7px)) translateZ(40px) rotateX(4deg);
-  }
 }
 
 @keyframes shadow {
   50% {
-    width: 42%;
+    width: 38%;
     opacity: 0.6;
   }
 }
 
-.slide-left .c-main {
-  animation: in-left 0.35s ease-out, float 3.2s ease-in-out 0.35s infinite;
+.swipe-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  color: #7f8bb0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.slide-right .c-main {
-  animation: in-right 0.35s ease-out, float 3.2s ease-in-out 0.35s infinite;
+.swipe-hint span {
+  color: var(--accent);
+  font-size: 1rem;
+  animation: nudge 1.6s ease-in-out infinite;
 }
 
-@keyframes in-left {
-  from {
-    opacity: 0.2;
-    transform: translate(-10%, -50%) translateZ(-60px) rotateY(-30deg);
+.swipe-hint span:last-child {
+  animation-direction: reverse;
+}
+
+@keyframes nudge {
+  50% {
+    transform: translateX(-4px);
   }
-}
-
-@keyframes in-right {
-  from {
-    opacity: 0.2;
-    transform: translate(-90%, -50%) translateZ(-60px) rotateY(30deg);
-  }
-}
-
-.skin-nav {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 1px solid var(--card-border);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-  cursor: pointer;
-  touch-action: manipulation;
-  transition: border-color 0.15s, background 0.15s, transform 0.1s;
-}
-
-.skin-nav svg {
-  width: 18px;
-  height: 18px;
-}
-
-.skin-nav:hover {
-  border-color: var(--accent);
-  background: rgba(63, 224, 255, 0.12);
-}
-
-.skin-nav:active {
-  transform: scale(0.92);
 }
 
 .skin-meta {
@@ -895,12 +860,13 @@ h3 {
     display: none;
   }
 
-  .carousel-stage {
-    height: 112px;
+  .carousel {
+    height: 132px;
   }
 
-  .c-main {
-    height: 82px;
+  .cv-card {
+    height: 86px;
+    margin-top: -43px;
   }
 
   .play-card {
@@ -1022,4 +988,48 @@ main {
   background: rgba(10, 14, 30, 0.6);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
+}
+
+/* Landing ad: its own band below the hero, clearly labelled. */
+.ad-band {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 8px 20px 24px;
+}
+
+.ad-slot.ad-landing {
+  position: relative;
+  max-width: 970px;
+  min-height: 110px;
+  margin: 0 auto;
+  padding: 26px 12px 12px;
+  border: 1px solid rgba(255, 209, 102, 0.28);
+  background:
+    radial-gradient(80% 120% at 50% 0%, rgba(255, 209, 102, 0.07), transparent 70%),
+    rgba(10, 14, 30, 0.75);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.ad-slot.ad-landing::before {
+  content: attr(data-label);
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #b9a46a;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ad-preview {
+  display: grid;
+  place-items: center;
+  width: min(728px, 100%);
+  height: 90px;
+  border: 2px dashed rgba(255, 209, 102, 0.5);
+  border-radius: 10px;
+  color: #ffd166;
+  font-weight: 800;
 }

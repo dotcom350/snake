@@ -91,9 +91,12 @@ export async function registerPages(fastify: FastifyInstance, publicDir: string)
       (adsOn && s.ads.headCode ? s.ads.headCode : '');
 
     let html = tpl.replaceAll('%SITE_URL%', origin).replace('</head>', `${head}</head>`);
+    const adLabel = PUBLIC_PAGES[route]?.lang === 'es' ? 'Publicidad' : 'Advertisement';
     html = html.replace(
       '<!--AD_LANDING-->',
-      adsOn && s.ads.landingCode ? `<div class="ad-slot ad-landing">${s.ads.landingCode}</div>` : ''
+      adsOn && s.ads.landingCode
+        ? `<section class="ad-band" aria-label="${adLabel}"><div class="ad-slot ad-landing" data-label="${adLabel}">${s.ads.landingCode}</div></section>`
+        : ''
     );
     if (cache.size > 32) cache.clear();
     cache.set(key, html);
@@ -122,6 +125,26 @@ export async function registerPages(fastify: FastifyInstance, publicDir: string)
 
   fastify.get('/es', async (_request, reply) => reply.redirect('/es/', 301));
   fastify.get('/index.html', async (_request, reply) => reply.redirect('/', 301));
+
+  // Files the ad network asks to place at the site root (e.g. Monetag's sw.js for push ads).
+  const ROOT_TYPES: Record<string, string> = {
+    js: 'application/javascript; charset=utf-8',
+    txt: 'text/plain; charset=utf-8',
+    xml: 'application/xml; charset=utf-8',
+    json: 'application/json; charset=utf-8',
+  };
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (request.method !== 'GET' && request.method !== 'HEAD') return;
+    const path = request.url.split('?')[0];
+    if (path.indexOf('/', 1) !== -1 || path.length < 4) return;
+    const file = settings().ads.rootFiles.find((f) => `/${f.name}` === path);
+    if (!file) return;
+    const ext = file.name.split('.').pop() ?? 'txt';
+    return reply
+      .header('Content-Type', ROOT_TYPES[ext] ?? 'text/plain; charset=utf-8')
+      .header('Cache-Control', 'public, max-age=300')
+      .send(file.content);
+  });
 
   fastify.get('/ads.txt', async (_request, reply) => {
     const txt = settings().ads.adsTxt.trim();

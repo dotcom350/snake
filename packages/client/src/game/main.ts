@@ -98,7 +98,7 @@ export function startGame(opts: StartOptions): void {
   const menuBtn = el('button', 'btn btn-ghost', t('menu'));
   menuBtn.type = 'button';
   panelActions.append(reviveBtn, primaryBtn, menuBtn);
-  panel.append(panelTitle, panelText, panelStats, panelActions, panelAd);
+  panel.append(panelTitle, panelText, panelStats, panelAd, panelActions);
 
   const renderer = new Renderer(canvas, cfg.appearance, prefs);
   const controls = new Controls(canvas, boostBtn);
@@ -217,15 +217,8 @@ export function startGame(opts: StartOptions): void {
     revive.hidden = false;
     syncBackdrop();
     reviveText.textContent = t('reviveHint', { p: Math.round(ads.revivePercent) });
-    if (ads.reviveCode) {
-      const box = el('div', 'ad-box');
-      box.append(el('span', 'ad-label', t('ad')));
-      const slot = el('div', 'ad-content');
-      box.append(slot);
-      reviveAd.replaceChildren(box);
-      injectHtml(slot, ads.reviveCode);
-      navigator.sendBeacon?.('/api/event', JSON.stringify({ t: 'ad', s: 'revive' }));
-    }
+    const reviveBox = adBox(ads.reviveCode, 'revive', '300×250');
+    if (reviveBox) reviveAd.replaceChildren(reviveBox);
     const total = Math.max(0, ads.reviveSeconds);
     const endsAt = performance.now() + total * 1000;
     const tickRevive = () => {
@@ -238,28 +231,43 @@ export function startGame(opts: StartOptions): void {
         net.revive();
         reviveWatchdog = window.setTimeout(() => {
           closeRevive();
-          if (lastDeath) showPanel(lastDeath.title, t('reviveFailed'), t('playAgain'), join, lastDeath.stats);
+          if (lastDeath) showPanel(lastDeath.title, t('reviveFailed'), t('playAgain'), playAgain, lastDeath.stats);
         }, 4000);
       }
     };
     tickRevive();
     reviveTimer = window.setInterval(tickRevive, 250);
   };
-  reviveCancel.onclick = () => {
+  const cancelRevive = () => {
     closeRevive();
-    if (lastDeath) showPanel(lastDeath.title, lastDeath.text, t('playAgain'), join, lastDeath.stats);
+    if (lastDeath) showPanel(lastDeath.title, lastDeath.text, t('playAgain'), playAgain, lastDeath.stats);
+  };
+  reviveCancel.onclick = cancelRevive;
+
+  const adTest = /[?&]adtest=1\b/.test(location.search);
+
+  /** Builds a labelled ad box; in test mode (?adtest=1) empty slots show a placeholder. */
+  const adBox = (code: string, slotName: 'death' | 'revive' | 'play', size: string): HTMLElement | null => {
+    if (!code && !adTest) return null;
+    const box = el('div', `ad-box ad-${slotName}`);
+    box.append(el('span', 'ad-label', t('ad')));
+    const slot = el('div', 'ad-content');
+    box.append(slot);
+    if (code) {
+      injectHtml(slot, code);
+      navigator.sendBeacon?.('/api/event', JSON.stringify({ t: 'ad', s: slotName === 'play' ? 'landing' : slotName }));
+    } else {
+      slot.append(el('div', 'ad-preview', `${t('adPreview', { slot: slotName })} · ${size}`));
+    }
+    return box;
   };
 
   const showDeathAd = () => {
     const ads = cfg.ads;
-    if (!ads.enabled || !ads.deathCode || deaths % Math.max(1, ads.deathEvery) !== 0) return;
-    const box = el('div', 'ad-box');
-    box.append(el('span', 'ad-label', t('ad')));
-    const slot = el('div', 'ad-content');
-    box.append(slot);
-    panelAd.replaceChildren(box);
-    injectHtml(slot, ads.deathCode);
-    navigator.sendBeacon?.('/api/event', JSON.stringify({ t: 'ad', s: 'death' }));
+    if (!adTest && (!ads.enabled || !ads.deathCode)) return;
+    if (deaths % Math.max(1, ads.deathEvery) !== 0) return;
+    const box = adBox(ads.deathCode, 'death', '300×250');
+    if (box) panelAd.replaceChildren(box);
   };
 
   const stat = (label: string, value: string, highlight = false) => {
@@ -287,6 +295,44 @@ export function startGame(opts: StartOptions): void {
     opts.onExit(reason);
   };
 
+  /** Optional skippable ad before a game, every N games. Calls `go` when the player can start. */
+  const preroll = (go: () => void) => {
+    const ads = cfg.ads;
+    const plays = Number(storage.get('plays') ?? 0);
+    storage.set('plays', String(plays + 1));
+    const active = (ads.enabled && ads.playCode) || adTest;
+    if (!active || plays % Math.max(1, ads.playEvery) !== 0) return go();
+    const box = adBox(ads.playCode, 'play', '728×90 / 300×250');
+    if (!box) return go();
+    hidePanel();
+    revive.hidden = false;
+    syncBackdrop();
+    reviveTitle.textContent = t('ad');
+    reviveRing.hidden = true;
+    reviveAd.replaceChildren(box);
+    reviveCancel.className = 'btn btn-primary';
+    const skipAt = performance.now() + ads.playSkipSeconds * 1000;
+    const tickSkip = () => {
+      const left = Math.max(0, Math.ceil((skipAt - performance.now()) / 1000));
+      reviveCancel.disabled = left > 0;
+      reviveCancel.textContent = left > 0 ? t('adSkipIn', { s: left }) : t('adPlay');
+      reviveText.textContent = '';
+      if (left <= 0) clearInterval(reviveTimer);
+    };
+    tickSkip();
+    reviveTimer = window.setInterval(tickSkip, 250);
+    reviveCancel.onclick = () => {
+      closeRevive();
+      reviveRing.hidden = false;
+      reviveTitle.textContent = t('reviving');
+      reviveCancel.className = 'btn btn-ghost';
+      reviveCancel.textContent = t('cancel');
+      reviveCancel.disabled = false;
+      reviveCancel.onclick = cancelRevive;
+      go();
+    };
+  };
+
   const join = () => {
     hidePanel();
     prev = cur = null;
@@ -294,6 +340,8 @@ export function startGame(opts: StartOptions): void {
     killsLine.textContent = '';
     net.join(opts.nickname, sid, prefs.skin, isTouch ? 'm' : 'd', opts.locale);
   };
+
+  const playAgain = () => preroll(join);
 
   const onMessage = (msg: ServerMessage) => {
     switch (msg.type) {
@@ -349,7 +397,7 @@ export function startGame(opts: StartOptions): void {
           const stats = [stat(t('yourLength'), num(msg.score), isBest), stat(isBest ? t('newBest') : t('best'), num(Math.max(best, msg.score)))];
           if (kills > 0) stats.push(stat(t('kills'), num(kills)));
           lastDeath = { title: t('died'), text: reason, stats };
-          showPanel(t('died'), reason, t('playAgain'), join, stats);
+          showPanel(t('died'), reason, t('playAgain'), playAgain, stats);
           if (msg.revive && cfg.ads.reviveEnabled) {
             reviveBtn.hidden = false;
             reviveBtn.textContent = `▶ ${t('revive', { p: Math.round(cfg.ads.revivePercent) })}`;
@@ -553,6 +601,9 @@ export function startGame(opts: StartOptions): void {
 
   net
     .connect()
-    .then(join)
+    .then(() => {
+      showStatus(null);
+      preroll(join);
+    })
     .catch(() => teardown('connect'));
 }
