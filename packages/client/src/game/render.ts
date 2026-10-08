@@ -1,4 +1,4 @@
-import { snakeRadius, foodRadius } from '@snake/shared/protocol';
+import { snakeRadius, foodRadius, FOOD_MAP_SIZE } from '@snake/shared/protocol';
 import type { PublicConfig } from '@snake/shared/site-config';
 import type { JoystickView } from './input';
 import { drawSnake, hexToRgb } from './skins';
@@ -30,6 +30,9 @@ export interface Frame {
   dt: number;
   joystick: JoystickView;
   selfAlive: boolean;
+  /** Food density from the server (see FOOD_MAP_SIZE). */
+  foodMap: string;
+  leader: [number, number] | null;
 }
 
 export interface RenderOptions {
@@ -80,6 +83,8 @@ export class Renderer {
   minimapRadius = 56;
   private frameMs = 16;
   private slowSince = 0;
+  private mapLayer: HTMLCanvasElement | null = null;
+  private mapKey = '';
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -222,6 +227,47 @@ export class Renderer {
     if (f.joystick.active) this.drawJoystick(f.joystick);
   }
 
+  /** Food heat layer, rebuilt only when the server sends a new map (about once a second). */
+  private foodLayer(map: string, size: number): HTMLCanvasElement | null {
+    if (!map) return null;
+    const key = `${size}|${map}`;
+    if (key === this.mapKey && this.mapLayer) return this.mapLayer;
+    const n = FOOD_MAP_SIZE;
+    const c = this.mapLayer ?? document.createElement('canvas');
+    c.width = c.height = size;
+    const g = c.getContext('2d')!;
+    g.clearRect(0, 0, size, size);
+    const cell = size / n;
+    const [r, gg, b] = hexToRgb(this.theme.foodColors[2 % this.theme.foodColors.length] ?? '#ffd166');
+    // Food is spread fairly evenly, so only highlight cells clearly above average (e.g. where a big snake died).
+    let sum = 0;
+    let cells = 0;
+    for (let i = 0; i < n * n; i++) {
+      const v = map.charCodeAt(i) - 48;
+      if (v > 0) {
+        sum += v;
+        cells++;
+      }
+    }
+    const threshold = cells ? sum / cells + 1.5 : 10;
+    for (let i = 0; i < n * n; i++) {
+      const raw = map.charCodeAt(i) - 48;
+      if (raw < threshold) continue;
+      const level = Math.min(9, 3 + (raw - threshold) * 2);
+      const x = (i % n) * cell + cell / 2;
+      const y = Math.floor(i / n) * cell + cell / 2;
+      const rad = cell * (0.6 + level * 0.12);
+      const grad = g.createRadialGradient(x, y, 0, x, y, rad);
+      grad.addColorStop(0, `rgba(${r},${gg},${b},${0.25 + level * 0.07})`);
+      grad.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+      g.fillStyle = grad;
+      g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+    this.mapLayer = c;
+    this.mapKey = key;
+    return c;
+  }
+
   private drawMinimap(f: Frame): void {
     const ctx = this.ctx;
     const R = this.minimapRadius;
@@ -233,31 +279,57 @@ export class Renderer {
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, Math.PI * 2);
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
-    ctx.stroke();
 
-    // Arena square inscribed in the circle.
-    const side = R * 1.38;
-    const k = side / Math.max(f.arenaW, f.arenaH);
+    // The round arena fills most of the minimap; food density and the leader are shown inside.
+    const inner = R * 0.9;
+    const k = (inner * 2) / Math.min(f.arenaW, f.arenaH);
     const x0 = cx - (f.arenaW * k) / 2;
     const y0 = cy - (f.arenaH * k) / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(30,45,90,0.35)';
+    ctx.fillRect(cx - inner, cy - inner, inner * 2, inner * 2);
+    const layer = this.foodLayer(f.foodMap, Math.round(inner * 2));
+    if (layer) ctx.drawImage(layer, x0, y0, f.arenaW * k, f.arenaH * k);
+    ctx.restore();
+
     ctx.strokeStyle = this.theme.border;
-    ctx.globalAlpha = 0.75;
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(x0, y0, f.arenaW * k, f.arenaH * k);
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.stroke();
+
+    if (f.leader) {
+      const lx = x0 + f.leader[0] * k;
+      const ly = y0 + f.leader[1] * k;
+      ctx.fillStyle = '#ff5d73';
+      ctx.beginPath();
+      ctx.moveTo(lx, ly - 5);
+      ctx.lineTo(lx + 4.5, ly + 3.5);
+      ctx.lineTo(lx - 4.5, ly + 3.5);
+      ctx.closePath();
+      ctx.fill();
+    }
 
     if (f.selfAlive) {
       const px = x0 + f.camX * k;
       const py = y0 + f.camY * k;
       const pulse = (f.time % 1400) / 1400;
-      ctx.strokeStyle = `rgba(255,209,102,${(1 - pulse).toFixed(2)})`;
+      ctx.strokeStyle = `rgba(255,255,255,${(1 - pulse).toFixed(2)})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(px, py, 4 + pulse * 9, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = '#ffd166';
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(px, py, 4, 0, Math.PI * 2);
       ctx.fill();

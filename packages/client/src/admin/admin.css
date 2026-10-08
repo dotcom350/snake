@@ -726,3 +726,255 @@ h3.sub {
 .skin-canvas {
   height: 84px;
 }
+
+/* ===== Visual refresh ===== */
+:root {
+  --bg: #070a14;
+  --panel: rgba(14, 20, 40, 0.85);
+  --card: rgba(18, 26, 52, 0.7);
+  --border: rgba(150, 180, 255, 0.12);
+  --accent: #3fe0ff;
+}
+
+body {
+  background:
+    radial-gradient(900px 600px at 100% -10%, rgba(63, 224, 255, 0.1), transparent 60%),
+    radial-gradient(800px 600px at -10% 110%, rgba(140, 123, 255, 0.1), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+.side {
+  background: linear-gradient(180deg, rgba(16, 22, 44, 0.92), rgba(10, 14, 30, 0.92));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.nav a {
+  position: relative;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav a.active {
+  background: linear-gradient(90deg, rgba(63, 224, 255, 0.18), rgba(63, 224, 255, 0.04));
+  color: #e8fbff;
+}
+
+.nav a.active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+}
+
+svg.nav-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+
+.page-head h1 {
+  background: linear-gradient(100deg, #ffffff, #bdf4ff 60%, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 1.7rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.card {
+  position: relative;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(63, 224, 255, 0.05), transparent 60%),
+    var(--card);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 20px 50px rgba(0, 0, 0, 0.25);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.card-title {
+  color: #dbe4ff;
+  font-weight: 800;
+}
+
+.kpi {
+  --tone: #3fe0ff;
+  position: relative;
+  overflow: hidden;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 100% at 100% 0%, color-mix(in srgb, var(--tone) 16%, transparent), transparent 60%),
+    rgba(255, 255, 255, 0.03);
+}
+
+.kpi::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--tone);
+  box-shadow: 0 0 14px var(--tone);
+}
+
+.tone-cyan { --tone: #3fe0ff; }
+.tone-green { --tone: #5ee06a; }
+.tone-gold { --tone: #ffd166; }
+.tone-pink { --tone: #ff5d73; }
+.tone-violet { --tone: #8c7bff; }
+.tone-blue { --tone: #3fa7ff; }
+
+.kpi-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.kpi-value {
+  font-size: 1.6rem;
+}
+
+.delta {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.delta.up {
+  background: rgba(94, 224, 106, 0.15);
+  color: #8ff09a;
+}
+
+.delta.down {
+  background: rgba(255, 93, 115, 0.15);
+  color: #ff8fa0;
+}
+
+.spark {
+  display: block;
+  width: 100%;
+  height: 30px;
+  margin-top: 6px;
+}
+
+.chart .line-glow {
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #5ee06a, #3fe0ff);
+  box-shadow: 0 8px 22px rgba(63, 224, 255, 0.25);
+}
+
+.input:focus {
+  box-shadow: 0 0 0 3px rgba(63, 224, 255, 0.15);
+}
+
+.login-card {
+  background: linear-gradient(180deg, rgba(20, 28, 56, 0.92), rgba(10, 14, 30, 0.92));
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.big-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.big-stat strong {
+  font-size: 2.4rem;
+  font-weight: 900;
+  background: linear-gradient(100deg, #fff, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.heat {
+  display: grid;
+  grid-template-columns: 34px repeat(24, 1fr);
+  gap: 3px;
+  font-size: 0.68rem;
+}
+
+.heat-h,
+.heat-d {
+  color: var(--muted);
+  text-align: center;
+}
+
+.heat-d {
+  text-align: left;
+}
+
+.heat-c {
+  aspect-ratio: 1;
+  border-radius: 4px;
+}
+
+.tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.track {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.track-n {
+  color: var(--muted);
+  font-weight: 800;
+  text-align: center;
+}
+
+.track-main .audio {
+  height: 32px;
+  margin: 6px 0 0;
+}
+
+.track-actions {
+  display: flex;
+  gap: 4px;
+}
+
+@media (max-width: 860px) {
+  .nav a.active::before {
+    display: none;
+  }
+
+  .track {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kpi-row {
+  flex-wrap: wrap;
+}
+
+.kpi-value {
+  white-space: nowrap;
+}

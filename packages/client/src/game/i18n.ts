@@ -39,6 +39,12 @@ const en = {
   kills: 'Kills',
   youAte: 'You ate {name}!',
   ad: 'Advertisement',
+  revive: 'Revive · keep {p}%',
+  reviving: 'Reviving…',
+  reviveIn: 'Back in the arena in {s}s',
+  reviveHint: 'Thanks for watching! Your snake comes back with {p}% of its length.',
+  cancel: 'Cancel',
+  reviveFailed: "Couldn't revive. Start a new game.",
 };
 
 const es: typeof en = {
@@ -82,6 +88,12 @@ const es: typeof en = {
   kills: 'Eliminaciones',
   youAte: '¡Te comiste a {name}!',
   ad: 'Publicidad',
+  revive: 'Revivir · conserva el {p}%',
+  reviving: 'Reviviendo…',
+  reviveIn: 'Vuelves a la arena en {s} s',
+  reviveHint: '¡Gracias por mirar! Tu serpiente vuelve con el {p}% de su longitud.',
+  cancel: 'Cancelar',
+  reviveFailed: 'No se pudo revivir. Empieza una partida nueva.',
 };
 
 export type GameStringKey = keyof typeof en;

@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Snake Arena – Juego de Serpientes Multijugador .io Gratis</title>
-    <meta name="description" content="Juega gratis a Snake Arena en tu navegador: un juego de serpientes multijugador .io. Come orbes brillantes, crece y supera a los demás. Sin descargas y funciona en el móvil." />
+    <title>Snake Arena – Juego de Serpientes Multijugador Gratis</title>
+    <meta name="description" content="Juega gratis a Snake Arena en tu navegador: un juego de serpientes multijugador. Come orbes brillantes, crece y supera a los demás. Sin descargas y funciona en el móvil." />
     <link rel="canonical" href="%SITE_URL%/es/" />
     <link rel="alternate" hreflang="en" href="%SITE_URL%/" />
     <link rel="alternate" hreflang="es" href="%SITE_URL%/es/" />
@@ -23,7 +23,7 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Snake Arena" />
-    <meta property="og:title" content="Snake Arena – Juego de Serpientes Multijugador .io Gratis" />
+    <meta property="og:title" content="Snake Arena – Juego de Serpientes Multijugador Gratis" />
     <meta property="og:description" content="Come orbes brillantes, crece y supera a las demás serpientes. Juega gratis en el navegador, en el móvil o en el ordenador." />
     <meta property="og:url" content="%SITE_URL%/es/" />
     <meta property="og:image" content="%SITE_URL%/og-image.png" />
@@ -33,7 +33,7 @@
     <meta property="og:locale" content="es_ES" />
     <meta property="og:locale:alternate" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Snake Arena – Juego de Serpientes Multijugador .io Gratis" />
+    <meta name="twitter:title" content="Snake Arena – Juego de Serpientes Multijugador Gratis" />
     <meta name="twitter:description" content="Come orbes brillantes, crece y supera a las demás serpientes. Gratis y sin descargas." />
     <meta name="twitter:image" content="%SITE_URL%/og-image.png" />
 
@@ -53,8 +53,8 @@
             "name": "Snake Arena",
             "url": "%SITE_URL%/es/",
             "image": "%SITE_URL%/og-image.png",
-            "description": "Juego de serpientes multijugador .io gratis para el navegador. Come orbes brillantes, crece y supera a las demás serpientes.",
-            "genre": ["Arcade", "Multijugador", "juego io"],
+            "description": "Juego de serpientes multijugador gratis para el navegador. Come orbes brillantes, crece y supera a las demás serpientes.",
+            "genre": ["Arcade", "Multijugador", "Juego de serpientes"],
             "gamePlatform": ["Navegador web", "Navegador móvil"],
             "applicationCategory": "Game",
             "operatingSystem": "Any",
@@ -99,8 +99,8 @@
           <div class="hero-shade" aria-hidden="true"></div>
           <div class="hero-inner">
             <div class="hero-copy">
-              <span class="eyebrow"><i aria-hidden="true"></i>Multijugador .io · 100% gratis</span>
-              <h1 id="title">Snake Arena <span>Juego de serpientes multijugador .io gratis</span></h1>
+              <span class="eyebrow"><i aria-hidden="true"></i>Multijugador online · 100% gratis</span>
+              <h1 id="title">Snake Arena <span>Juego de serpientes multijugador online gratis</span></h1>
               <p class="lead">Deslízate por una arena espacial luminosa, come orbes de energía y conviértete en la serpiente más larga. Juega al instante en el navegador, desde el móvil o el ordenador.</p>
               <ul class="hero-points">
                 <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor"/></svg>Juego al instante</li>
@@ -115,13 +115,18 @@
               data-err-full="El servidor está lleno ahora mismo. Inténtalo de nuevo en un momento.">
               <div class="skin-picker" id="skin-picker" hidden>
                 <span class="card-label">Elige tu serpiente</span>
-                <div class="skin-stage">
-                  <canvas aria-hidden="true"></canvas>
-                  <button type="button" class="skin-nav prev" data-dir="-1" aria-label="Serpiente anterior">‹</button>
-                  <button type="button" class="skin-nav next" data-dir="1" aria-label="Serpiente siguiente">›</button>
-                  <span class="skin-name" aria-live="polite"></span>
+                <div class="carousel">
+                  <button type="button" class="skin-nav prev" data-dir="-1" aria-label="Serpiente anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                  <div class="carousel-stage">
+                    <span class="carousel-glow" aria-hidden="true"></span>
+                    <canvas class="c-side c-prev" aria-hidden="true"></canvas>
+                    <canvas class="c-side c-next" aria-hidden="true"></canvas>
+                    <canvas class="c-main" aria-hidden="true"></canvas>
+                    <span class="carousel-shadow" aria-hidden="true"></span>
+                  </div>
+                  <button type="button" class="skin-nav next" data-dir="1" aria-label="Serpiente siguiente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                 </div>
-                <div class="skin-dots" aria-hidden="true"></div>
+                <div class="skin-meta"><span class="skin-name" aria-live="polite"></span><span class="skin-dots" aria-hidden="true"></span></div>
               </div>
 
               <label class="card-label" for="nickname">Tu nombre</label>
@@ -227,8 +232,8 @@
               <p>Tu serpiente se convierte en orbes brillantes que otros jugadores pueden comer. Pulsa Jugar otra vez para reaparecer al instante.</p>
             </details>
             <details>
-              <summary>¿Se parece a otros juegos de serpientes .io?</summary>
-              <p>Sí. Si te gustan los juegos de serpientes .io como slither.io, te sentirás como en casa: dirige, come, crece y encierra a otras serpientes.</p>
+              <summary>¿Hay bots en la arena?</summary>
+              <p>Sí. Cuando hay pocos jugadores conectados entran bots para que siempre haya alguien a quien perseguir. Juegan con las mismas reglas que todos, así que también se les puede encerrar y comer.</p>
             </details>
           </div>
         </section>

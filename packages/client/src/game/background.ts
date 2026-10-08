@@ -276,6 +276,11 @@ export function drawArena(ctx: CanvasRenderingContext2D, theme: Theme, assets: A
   const ay1 = Math.min(v.arenaH, v.maxY);
 
   if (ax1 > ax0 && ay1 > ay0) {
+    // The arena is round: everything on the floor is clipped to the circle.
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(v.arenaW / 2, v.arenaH / 2, Math.min(v.arenaW, v.arenaH) / 2, 0, Math.PI * 2);
+    ctx.clip();
     ctx.fillStyle = assets.pattern ?? theme.background;
     ctx.fillRect(ax0, ay0, ax1 - ax0, ay1 - ay0);
 
@@ -300,7 +305,7 @@ export function drawArena(ctx: CanvasRenderingContext2D, theme: Theme, assets: A
     if (theme.bgGradient !== 'none') {
       const g =
         theme.bgGradient === 'radial'
-          ? ctx.createRadialGradient(v.arenaW / 2, v.arenaH / 2, 0, v.arenaW / 2, v.arenaH / 2, Math.max(v.arenaW, v.arenaH) * 0.72)
+          ? ctx.createRadialGradient(v.arenaW / 2, v.arenaH / 2, 0, v.arenaW / 2, v.arenaH / 2, Math.min(v.arenaW, v.arenaH) * 0.5)
           : ctx.createLinearGradient(0, 0, 0, v.arenaH);
       g.addColorStop(0, rgba(theme.background2, 0));
       g.addColorStop(1, rgba(theme.background2, 0.85));
@@ -309,6 +314,7 @@ export function drawArena(ctx: CanvasRenderingContext2D, theme: Theme, assets: A
     }
 
     if (theme.particles !== 'none' && theme.particleDensity > 0) drawParticles(ctx, theme, v, ax0, ay0, ax1, ay1);
+    ctx.restore();
   }
 
   drawBarrier(ctx, theme, v);
@@ -317,26 +323,36 @@ export function drawArena(ctx: CanvasRenderingContext2D, theme: Theme, assets: A
 /** Animated energy barrier along the arena edge. */
 function drawBarrier(ctx: CanvasRenderingContext2D, theme: Theme, v: ArenaView): void {
   const ww = theme.wallWidth;
-  const W = v.arenaW, H = v.arenaH;
+  const cx = v.arenaW / 2, cy = v.arenaH / 2;
+  const R = Math.min(v.arenaW, v.arenaH) / 2;
+  // Skip when the edge is far outside the view.
+  const nearest = Math.hypot(Math.max(v.minX - cx, 0, cx - v.maxX), Math.max(v.minY - cy, 0, cy - v.maxY));
+  const farthest = Math.hypot(Math.max(Math.abs(v.minX - cx), Math.abs(v.maxX - cx)), Math.max(Math.abs(v.minY - cy), Math.abs(v.maxY - cy)));
+  if (farthest < R - ww * 6 || nearest > R + ww * 6) return;
+
   const pulse = 0.75 + 0.25 * Math.sin(v.time / 420);
-  const rect = (pad: number) => ctx.strokeRect(-pad, -pad, W + pad * 2, H + pad * 2);
+  const ring = (radius: number) => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  };
   ctx.strokeStyle = theme.border;
   if (theme.wallGlow > 0) {
     ctx.globalAlpha = 0.1 * theme.wallGlow * pulse;
     ctx.lineWidth = ww * 7;
-    rect(ww * 3.5);
+    ring(R + ww * 3.5);
     ctx.globalAlpha = 0.25 * theme.wallGlow * pulse;
     ctx.lineWidth = ww * 3;
-    rect(ww * 1.5);
+    ring(R + ww * 1.5);
   }
   ctx.globalAlpha = 1;
   ctx.lineWidth = ww;
-  rect(ww / 2);
+  ring(R + ww / 2);
   ctx.strokeStyle = 'rgba(255,255,255,0.85)';
   ctx.lineWidth = Math.max(1, ww * 0.28);
   ctx.setLineDash([46, 74]);
   ctx.lineDashOffset = -v.time * 0.09;
-  rect(ww / 2);
+  ring(R + ww / 2);
   ctx.setLineDash([]);
   ctx.lineDashOffset = 0;
 }

@@ -146,7 +146,7 @@ export async function registerPages(fastify: FastifyInstance, publicDir: string)
         body = undefined;
       }
     }
-    if (body && typeof body === 'object' && body.t === 'ad' && (body.s === 'death' || body.s === 'landing')) {
+    if (body && typeof body === 'object' && body.t === 'ad' && (body.s === 'death' || body.s === 'landing' || body.s === 'revive')) {
       stats.inc('ad_impression', body.s);
     }
     return reply.code(204).send();

@@ -201,6 +201,22 @@ DROP TABLE IF EXISTS stats_daily;
 DROP TABLE IF EXISTS admin_sessions;
     `,
   },
+  {
+    name: '004_revenue',
+    up: `
+CREATE TABLE IF NOT EXISTS revenue_entries (
+  id SERIAL PRIMARY KEY,
+  day DATE NOT NULL,
+  amount NUMERIC(14, 4) NOT NULL,
+  source TEXT NOT NULL DEFAULT 'Monetag',
+  note TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (day, source)
+);
+CREATE INDEX IF NOT EXISTS idx_games_ended_score ON games(ended_at, score);
+    `,
+    down: `DROP TABLE IF EXISTS revenue_entries;`,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

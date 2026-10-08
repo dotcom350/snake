@@ -76,43 +76,52 @@ async function initSkinPicker(): Promise<void> {
   const choices = skins.map((s, i) => ({ s, i })).filter((x) => x.s.enabled);
   if (!choices.length) return;
   const { drawSkinPreview } = await import('./game/skins');
-  const canvas = picker.querySelector('canvas')!;
+  const stage = picker.querySelector<HTMLDivElement>('.carousel-stage')!;
+  const main = picker.querySelector<HTMLCanvasElement>('.c-main')!;
+  const prevC = picker.querySelector<HTMLCanvasElement>('.c-prev')!;
+  const nextC = picker.querySelector<HTMLCanvasElement>('.c-next')!;
   const name = picker.querySelector<HTMLSpanElement>('.skin-name')!;
-  const dots = picker.querySelector<HTMLDivElement>('.skin-dots');
+  const dots = picker.querySelector<HTMLSpanElement>('.skin-dots');
   const prefs = loadPrefs();
   let pos = Math.max(0, choices.findIndex((c) => c.i === prefs.skin));
-  const compact = choices.length > 12;
-  if (dots) dots.replaceChildren(...(compact ? [document.createElement('em')] : choices.map(() => document.createElement('span'))));
+  const at = (k: number) => choices[(k + choices.length) % choices.length].s;
 
-  const select = (next: number) => {
+  const select = (next: number, dir = 0) => {
     pos = (next + choices.length) % choices.length;
     name.textContent = choices[pos].s.name;
     prefs.skin = choices[pos].i;
     savePrefs(prefs);
-    if (compact) {
-      const counter = dots?.querySelector('em');
-      if (counter) counter.textContent = `${pos + 1} / ${choices.length}`;
-    } else {
-      dots?.querySelectorAll('span').forEach((d, i) => d.classList.toggle('on', i === pos));
+    if (dots) dots.textContent = `${pos + 1} / ${choices.length}`;
+    if (dir) {
+      stage.classList.remove('slide-left', 'slide-right');
+      void stage.offsetWidth;
+      stage.classList.add(dir > 0 ? 'slide-left' : 'slide-right');
     }
   };
   for (const b of picker.querySelectorAll<HTMLButtonElement>('.skin-nav')) {
-    b.addEventListener('click', () => select(pos + Number(b.dataset.dir)));
+    b.addEventListener('click', () => select(pos + Number(b.dataset.dir), Number(b.dataset.dir)));
   }
+  prevC.addEventListener('click', () => select(pos - 1, -1));
+  nextC.addEventListener('click', () => select(pos + 1, 1));
   let startX = 0;
-  canvas.addEventListener('pointerdown', (e) => (startX = e.clientX));
-  canvas.addEventListener('pointerup', (e) => {
+  stage.addEventListener('pointerdown', (e) => (startX = e.clientX));
+  stage.addEventListener('pointerup', (e) => {
     const dx = e.clientX - startX;
-    if (Math.abs(dx) > 30) select(pos + (dx < 0 ? 1 : -1));
-    else select(pos + 1);
+    if (Math.abs(dx) > 30) select(pos + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
   });
   select(pos);
   picker.hidden = false;
 
+  let frame = 0;
   const animate = (time: number) => {
     requestAnimationFrame(animate);
     if (document.hidden || document.body.classList.contains('in-game')) return;
-    drawSkinPreview(canvas, choices[pos].s, time);
+    drawSkinPreview(main, at(pos), time);
+    // Side snakes are smaller and less important: redraw them at half the rate.
+    if (frame++ % 2 === 0) {
+      drawSkinPreview(prevC, at(pos - 1), time);
+      drawSkinPreview(nextC, at(pos + 1), time);
+    }
   };
   requestAnimationFrame(animate);
 }

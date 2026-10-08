@@ -95,10 +95,24 @@ export class Sound {
 
   private startMusic(): void {
     const ctx = this.ctx!;
-    if (this.cfg.customMusicUrl) {
-      const el = new Audio(this.cfg.customMusicUrl);
-      el.loop = true;
+    const urls = (this.cfg.tracks ?? []).map((tr) => tr.url);
+    if (!urls.length && this.cfg.customMusicUrl) urls.push(this.cfg.customMusicUrl);
+    if (urls.length) {
+      // Playlist: one <audio> element reused for every song so it stays connected to the music bus.
+      const order = this.cfg.shuffle ? [...urls].sort(() => Math.random() - 0.5) : urls;
+      let index = 0;
+      const el = new Audio(order[0]);
+      el.loop = order.length === 1;
       el.crossOrigin = 'anonymous';
+      el.preload = 'auto';
+      el.addEventListener('ended', () => {
+        index = (index + 1) % order.length;
+        el.src = order[index];
+        if (this.musicVolume > 0 && !this.muted) void el.play().catch(() => undefined);
+      });
+      el.addEventListener('error', () => {
+        if (order.length > 1) el.dispatchEvent(new Event('ended'));
+      });
       this.element = el;
       try {
         ctx.createMediaElementSource(el).connect(this.musicBus);

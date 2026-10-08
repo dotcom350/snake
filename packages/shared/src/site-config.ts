@@ -12,7 +12,8 @@ export const BG_GRADIENTS = ['none', 'radial', 'linear'] as const;
 export const PARTICLES = ['none', 'sparkles', 'bubbles', 'snow', 'fireflies', 'embers'] as const;
 export const BG_IMAGE_MODES = ['tile', 'cover'] as const;
 export const MUSIC_STYLES = ['chill', 'arcade', 'off'] as const;
-export const MAX_SKINS = 48;
+/** Skins are sent as one byte per snake. */
+export const MAX_SKINS = 255;
 
 export type SkinPattern = (typeof SKIN_PATTERNS)[number];
 export type HeadShape = (typeof HEAD_SHAPES)[number];
@@ -76,7 +77,16 @@ export interface SoundSettings {
   musicStyle: MusicStyle;
   musicVolume: number;
   sfxVolume: number;
+  /** Legacy single upload; kept so old saved settings keep working. */
   customMusicUrl: string | null;
+  /** Uploaded songs, played in order (or shuffled) as background music. */
+  tracks: MusicTrack[];
+  shuffle: boolean;
+}
+
+export interface MusicTrack {
+  url: string;
+  name: string;
 }
 
 /** null = use the value from the server's resource profile. */
@@ -96,6 +106,18 @@ export interface GameSettings {
 
 export interface AdSettings {
   enabled: boolean;
+  /** Offer "watch an ad to revive" on the death screen. */
+  reviveEnabled: boolean;
+  /** Ad shown while the revive countdown runs. */
+  reviveCode: string;
+  reviveSeconds: number;
+  /** Percentage of the length kept when reviving. */
+  revivePercent: number;
+  /** Revives allowed per game (resets when the player starts a new game). */
+  reviveMax: number;
+  /** Estimated earnings per 1000 ad impressions, used until real revenue is entered. */
+  estimatedCpm: number;
+  currency: string;
   /** <meta name="…" content="…"> tags for site verification (Monetag, Google…); always added to <head>. */
   verifyTags: string;
   headCode: string;
@@ -187,6 +209,8 @@ export const DEFAULT_SETTINGS: AllSettings = {
     musicVolume: 0.35,
     sfxVolume: 0.6,
     customMusicUrl: null,
+    tracks: [],
+    shuffle: true,
   },
   game: {
     arenaSize: null,
@@ -202,6 +226,13 @@ export const DEFAULT_SETTINGS: AllSettings = {
   },
   ads: {
     enabled: false,
+    reviveEnabled: true,
+    reviveCode: '',
+    reviveSeconds: 15,
+    revivePercent: 60,
+    reviveMax: 1,
+    estimatedCpm: 1.5,
+    currency: 'USD',
     verifyTags: '',
     headCode: '',
     landingCode: '',
@@ -218,7 +249,7 @@ export const DEFAULT_SETTINGS: AllSettings = {
 export interface PublicConfig {
   appearance: Omit<Appearance, 'landingAccent' | 'landingAccent2' | 'landingBackground'>;
   sound: SoundSettings;
-  ads: { enabled: boolean; deathCode: string; deathEvery: number };
+  ads: { enabled: boolean; deathCode: string; deathEvery: number; reviveEnabled: boolean; reviveCode: string; reviveSeconds: number; revivePercent: number };
 }
 
 const META_TAG = /<meta\s+(?:name|property)\s*=\s*["']([A-Za-z0-9_.:-]{1,64})["']\s+content\s*=\s*["']([^"'<>]{1,512})["']\s*\/?>/gi;
@@ -236,6 +267,14 @@ export function toPublicConfig(s: AllSettings): PublicConfig {
   return {
     appearance,
     sound: s.sound,
-    ads: { enabled: s.ads.enabled, deathCode: s.ads.enabled ? s.ads.deathCode : '', deathEvery: s.ads.deathEvery },
+    ads: {
+      enabled: s.ads.enabled,
+      deathCode: s.ads.enabled ? s.ads.deathCode : '',
+      deathEvery: s.ads.deathEvery,
+      reviveEnabled: s.ads.reviveEnabled,
+      reviveCode: s.ads.enabled ? s.ads.reviveCode : '',
+      reviveSeconds: s.ads.reviveSeconds,
+      revivePercent: s.ads.revivePercent,
+    },
   };
 }

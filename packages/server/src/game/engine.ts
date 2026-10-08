@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { snakeRadius, foodRadius } from '@snake/shared';
+import { snakeRadius, foodRadius, FOOD_MAP_SIZE } from '@snake/shared';
 import { CellGrid, BodyGrid } from './spatial-grid.js';
 import { createChildLogger } from '../logger.js';
 import { config } from '../config.js';
@@ -10,9 +10,12 @@ const logger = createChildLogger('game');
 const TURN_RATE = 4.2;
 const MIN_BOOST_MASS = 14;
 const POINT_SPACING_GUESS = 9;
+// Bots use player-like nicknames so rooms feel alive.
 const BOT_NAMES = [
-  'Viper', 'Cobra', 'Mamba', 'Python', 'Boa', 'Kraken', 'Noodle', 'Slinky', 'Zigzag', 'Pixel',
-  'Nova', 'Blaze', 'Shadow', 'Neon', 'Turbo', 'Wiggles', 'Sssam', 'Medusa', 'Rattle', 'Comet',
+  'Viper', 'Mamba', 'Kraken', 'Noodle', 'Zigzag', 'Pixel', 'Nova', 'Blaze', 'Shadow', 'Turbo',
+  'Medusa', 'Comet', 'Lucas', 'Sofi', 'Mateo', 'Valen', 'Nico', 'Luna', 'Kira', 'Toni',
+  'xXDarkXx', 'ProSnake', 'Gamer_77', 'NoobMaster', 'El Rey', 'Lia', 'Max', 'Juli', 'Zoe', 'Bruno',
+  'Ghost', 'Ninja', 'Rayo', 'Chispa', 'Titan', 'Sam', 'Leo', 'Mia', 'Ivy', 'Dante',
 ];
 
 export interface Point {
@@ -42,6 +45,8 @@ export interface Snake {
   device: 'm' | 'd';
   lang: 'en' | 'es';
   thinkOffset: number;
+  /** Bot personality (0–1): reaction speed, care and aggression. Unused for humans. */
+  skill: number;
 }
 
 export interface Food {
@@ -96,6 +101,8 @@ export class Room {
   private readonly bodyGrid = new BodyGrid(64);
   private deaths: DeathEvent[] = [];
   private botRespawnAt = 0;
+  private foodMapTick = -1;
+  private foodMapCache = '';
   private get foodTarget(): number {
     return Math.floor(gameConfig().foodPerRoom * 0.85);
   }
@@ -161,15 +168,26 @@ export class Room {
     throw new Error('No snake ids available');
   }
 
+  /** The arena is a circle inscribed in the width × height square. */
+  get radius(): number {
+    return Math.min(this.width, this.height) / 2;
+  }
+
+  private randomPointInArena(margin: number): Point {
+    const a = Math.random() * Math.PI * 2;
+    const d = Math.sqrt(Math.random()) * Math.max(0, this.radius - margin);
+    return { x: this.width / 2 + Math.cos(a) * d, y: this.height / 2 + Math.sin(a) * d };
+  }
+
+  private distFromCenter(x: number, y: number): number {
+    return Math.hypot(x - this.width / 2, y - this.height / 2);
+  }
+
   private findSpawnPoint(): Point {
-    const margin = 300;
     let best: Point = { x: this.width / 2, y: this.height / 2 };
     let bestScore = -1;
     for (let i = 0; i < 12; i++) {
-      const p = {
-        x: margin + Math.random() * (this.width - margin * 2),
-        y: margin + Math.random() * (this.height - margin * 2),
-      };
+      const p = this.randomPointInArena(Math.min(300, this.radius * 0.3));
       let minD = Infinity;
       for (const s of this.snakes.values()) {
         for (let j = 0; j < s.points.length; j += 4) {
@@ -218,7 +236,8 @@ export class Room {
       peakMass: mass,
       device: 'd',
       lang: 'en',
-      thinkOffset: Math.floor(Math.random() * 4),
+      thinkOffset: Math.floor(Math.random() * 8),
+      skill: 0.25 + Math.random() * 0.75,
     };
     this.snakes.set(snake.id, snake);
     return snake;
@@ -226,8 +245,12 @@ export class Room {
 
   private addFood(x: number, y: number, size: number, color: number): void {
     if (this.food.size >= this.foodHardCap) return;
-    x = Math.max(10, Math.min(this.width - 10, x));
-    y = Math.max(10, Math.min(this.height - 10, y));
+    const d = this.distFromCenter(x, y);
+    const max = this.radius - 12;
+    if (d > max) {
+      x = this.width / 2 + ((x - this.width / 2) / d) * max;
+      y = this.height / 2 + ((y - this.height / 2) / d) * max;
+    }
     const f: Food = { id: this.nextFoodId++, x, y, size, color };
     if (this.nextFoodId > 1e9) this.nextFoodId = 1;
     this.food.set(f.id, f);
@@ -236,12 +259,8 @@ export class Room {
 
   private spawnFood(): void {
     const size = Math.random() < 0.85 ? 1 : 2;
-    this.addFood(
-      20 + Math.random() * (this.width - 40),
-      20 + Math.random() * (this.height - 40),
-      size,
-      Math.floor(Math.random() * foodColorCount())
-    );
+    const p = this.randomPointInArena(20);
+    this.addFood(p.x, p.y, size, Math.floor(Math.random() * foodColorCount()));
   }
 
   private removeFood(f: Food): void {
@@ -292,7 +311,7 @@ export class Room {
     if (this.humanCount() > 0) this.lastHumanAt = now;
 
     for (const s of this.snakes.values()) {
-      if (s.isBot && (this.tickCount + s.thinkOffset) % 4 === 0) this.think(s);
+      if (s.isBot && (this.tickCount + s.thinkOffset) % Math.round(2 + (1 - s.skill) * 6) === 0) this.think(s);
 
       const turn = (TURN_RATE / (1 + s.mass / 600)) * dt;
       const diff = normAngle(s.targetAngle - s.angle);
@@ -353,7 +372,7 @@ export class Room {
     for (const s of this.snakes.values()) {
       const h = s.points[0];
       const r = snakeRadius(s.mass);
-      if (h.x < r || h.y < r || h.x > this.width - r || h.y > this.height - r) {
+      if (this.distFromCenter(h.x, h.y) > this.radius - r) {
         dead.push([s, null, 'wall']);
         continue;
       }
@@ -386,7 +405,7 @@ export class Room {
   }
 
   private dangerAt(x: number, y: number, radius: number, selfId: number): boolean {
-    if (x < 60 || y < 60 || x > this.width - 60 || y > this.height - 60) return true;
+    if (this.distFromCenter(x, y) > this.radius - 60) return true;
     let danger = false;
     this.bodyGrid.forEachNear(x, y, radius, (oid) => {
       if (oid !== selfId) danger = true;
@@ -397,26 +416,52 @@ export class Room {
   private think(s: Snake): void {
     const h = s.points[0];
     const r = snakeRadius(s.mass);
-    const look = 70 + r * 2;
+    const look = (60 + r * 2) * (0.6 + s.skill * 0.6);
+    const careless = Math.random() < (1 - s.skill) * 0.22;
 
     const aheadX = h.x + Math.cos(s.angle) * look;
     const aheadY = h.y + Math.sin(s.angle) * look;
-    if (this.dangerAt(aheadX, aheadY, r + 30, s.id)) {
+    if (!careless && this.dangerAt(aheadX, aheadY, r + 26, s.id)) {
       for (const delta of [0.9, -0.9, 1.8, -1.8, 2.7, -2.7]) {
         const a = s.angle + delta;
-        if (!this.dangerAt(h.x + Math.cos(a) * look, h.y + Math.sin(a) * look, r + 30, s.id)) {
+        if (!this.dangerAt(h.x + Math.cos(a) * look, h.y + Math.sin(a) * look, r + 26, s.id)) {
           s.targetAngle = normAngle(a);
-          s.wantsBoost = false;
+          s.wantsBoost = s.skill > 0.7 && s.mass > 30 && Math.random() < 0.25;
           return;
         }
       }
       s.targetAngle = Math.atan2(this.height / 2 - h.y, this.width / 2 - h.x);
+      s.wantsBoost = false;
       return;
+    }
+
+    // Hunt: try to cut in front of a nearby smaller snake, like real players do.
+    if (s.skill > 0.45 && s.mass > 25 && Math.random() < s.skill * 0.6) {
+      let prey: Snake | null = null;
+      let preyDist = 420 * 420;
+      for (const o of this.snakes.values()) {
+        if (o === s || o.protected || o.mass > s.mass * 0.9) continue;
+        const oh = o.points[0];
+        const d2 = (oh.x - h.x) ** 2 + (oh.y - h.y) ** 2;
+        if (d2 < preyDist) {
+          preyDist = d2;
+          prey = o;
+        }
+      }
+      if (prey) {
+        const ph = prey.points[0];
+        const lead = 90 + snakeRadius(prey.mass) * 4;
+        const tx = ph.x + Math.cos(prey.angle) * lead;
+        const ty = ph.y + Math.sin(prey.angle) * lead;
+        s.targetAngle = Math.atan2(ty - h.y, tx - h.x);
+        s.wantsBoost = preyDist < 260 * 260 && s.mass > 35 && Math.random() < 0.5;
+        return;
+      }
     }
 
     let best: Food | null = null;
     let bestScore = Infinity;
-    this.foodGrid.forEachNear(h.x, h.y, 320, (f) => {
+    this.foodGrid.forEachNear(h.x, h.y, 260 + s.skill * 160, (f) => {
       const dx = f.x - h.x;
       const dy = f.y - h.y;
       const score = (dx * dx + dy * dy) / (f.size * f.size);
@@ -428,12 +473,35 @@ export class Room {
 
     if (best) {
       const f: Food = best;
-      s.targetAngle = Math.atan2(f.y - h.y, f.x - h.x);
-      s.wantsBoost = f.size >= 3 && s.mass > 40 && Math.random() < 0.3;
+      s.targetAngle = Math.atan2(f.y - h.y, f.x - h.x) + (Math.random() - 0.5) * (1 - s.skill) * 0.6;
+      s.wantsBoost = f.size >= 3 && s.mass > 30 && Math.random() < 0.35;
     } else {
-      s.targetAngle = normAngle(s.targetAngle + (Math.random() - 0.5) * 0.8);
+      s.targetAngle = normAngle(s.targetAngle + (Math.random() - 0.5) * 0.9);
       s.wantsBoost = false;
     }
+  }
+
+  /** Coarse food density map for the minimap: FOOD_MAP_SIZE² digits (0 = empty … 9 = lots). */
+  foodMap(): string {
+    if (this.foodMapTick === this.tickCount) return this.foodMapCache;
+    const n = FOOD_MAP_SIZE;
+    const counts = new Array<number>(n * n).fill(0);
+    for (const f of this.food.values()) {
+      const cx = Math.min(n - 1, Math.max(0, Math.floor((f.x / this.width) * n)));
+      const cy = Math.min(n - 1, Math.max(0, Math.floor((f.y / this.height) * n)));
+      counts[cy * n + cx] += f.size;
+    }
+    const max = Math.max(1, ...counts);
+    this.foodMapCache = counts.map((c) => (c === 0 ? 0 : Math.max(1, Math.round(Math.sqrt(c / max) * 9)))).join('');
+    this.foodMapTick = this.tickCount;
+    return this.foodMapCache;
+  }
+
+  revivePlayer(sessionId: string, nickname: string, skin: number, device: 'm' | 'd', lang: 'en' | 'es', mass: number): Snake {
+    const s = this.addPlayer(sessionId, nickname, skin, device, lang);
+    s.mass = Math.max(s.mass, mass);
+    s.peakMass = s.mass;
+    return s;
   }
 
   private manageBots(now: number): void {
@@ -448,7 +516,7 @@ export class Room {
       const free = BOT_NAMES.filter((n) => !used.has(n));
       const pool = free.length ? free : BOT_NAMES;
       const name = pool[Math.floor(Math.random() * pool.length)];
-      this.spawnSnake('bot', name, true, g.startMass + Math.random() * 50, randomSkin());
+      this.spawnSnake('bot', name, true, g.startMass * (1 + Math.random() * 4), randomSkin());
       this.botRespawnAt = now + 1200;
     } else if (bots > target) {
       let smallest: Snake | null = null;

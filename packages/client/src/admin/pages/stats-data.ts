@@ -10,6 +10,9 @@ export interface StatsResponse {
   samples: Array<{ hour: string; avg_players: string; max_players: string; avg_rss: string; avg_tick: string; max_conn: string }>;
   topToday: Array<{ nickname: string; score: number; kills: number; skin: number; device: string; ended_at: string }>;
   topAll: Array<{ nickname: string; score: number; kills: number; skin: number; device: string; ended_at: string }>;
+  heat: Array<{ dow: number; hour: number; n: number }>;
+  returning: { players: number; returning: number };
+  scores: Array<{ bucket: string; n: number }>;
 }
 
 export function dayList(from: string, days: number): string[] {
@@ -49,6 +52,7 @@ export function daySeries(s: StatsResponse) {
     playtimeMin: get('playtime_sec').map((v) => Math.round((v / 60) * 10) / 10),
     peak: get('max_players'),
     ads: get('ad_impression'),
+    revives: get('revive'),
     visitors: uniq.visitor ?? zero(),
     players: uniq.player ?? zero(),
   };

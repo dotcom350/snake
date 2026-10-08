@@ -15,7 +15,7 @@ import {
 import type { GameEngine, Room, Snake } from '../game/engine.js';
 import { createChildLogger } from '../logger.js';
 import { config } from '../config.js';
-import { enabledSkinIds } from '../settings.js';
+import { enabledSkinIds, settings } from '../settings.js';
 import { stats } from '../stats.js';
 
 const logger = createChildLogger('ws');
@@ -25,8 +25,18 @@ const MIN_INPUT_INTERVAL_MS = 30;
 const META_INTERVAL_MS = 1000;
 const HEARTBEAT_MS = 30_000;
 
+interface PendingRevive {
+  mass: number;
+  deathAt: number;
+  skin: number;
+  device: 'm' | 'd';
+  lang: 'en' | 'es';
+}
+
 interface Client {
   socket: WebSocket;
+  pendingRevive: PendingRevive | null;
+  revivesUsed: number;
   room: Room | null;
   snakeId: number;
   sessionId: string;
@@ -94,6 +104,8 @@ export class GameSocketServer {
     const client: Client = {
       socket,
       room: null,
+      pendingRevive: null,
+      revivesUsed: 0,
       snakeId: 0,
       sessionId: '',
       nickname: '',
@@ -144,6 +156,33 @@ export class GameSocketServer {
     }
 
     if (msg.type === 'join') this.onJoin(client, msg);
+    else if (msg.type === 'revive') this.onRevive(client);
+  }
+
+  /**
+   * "Watch an ad to revive". The server can't verify that an ad network actually showed an ad,
+   * so it enforces the rules it can: revive must be enabled, the player must have just died,
+   * the ad countdown must have elapsed and the per-game limit must not be exceeded.
+   */
+  private onRevive(client: Client): void {
+    const pending = client.pendingRevive;
+    const ads = settings().ads;
+    if (!pending || !ads.reviveEnabled || !client.room || client.snakeId) return;
+    const now = Date.now();
+    const waited = now - pending.deathAt;
+    if (waited < ads.reviveSeconds * 1000 - 1500 || waited > 5 * 60_000) return;
+    if (client.revivesUsed >= ads.reviveMax) return;
+    const room = this.engine.getRoom(client.room.id);
+    if (!room) return;
+
+    client.pendingRevive = null;
+    client.revivesUsed++;
+    const snake = room.revivePlayer(client.sessionId, client.nickname, pending.skin, pending.device, pending.lang, pending.mass * (ads.revivePercent / 100));
+    client.snakeId = snake.id;
+    client.lastMetaAt = 0;
+    this.bySnake.set(`${room.id}:${snake.id}`, client);
+    stats.inc('revive');
+    this.send(client, { type: 'joined', id: snake.id, arena: { w: room.width, h: room.height }, tickHz: config.resourceConfig.tickHz });
   }
 
   private onJoin(client: Client, raw: unknown): void {
@@ -162,6 +201,8 @@ export class GameSocketServer {
     const { skin: wanted, d: device, l: lang } = parsed.data;
     const skin = enabledSkinIds().includes(wanted) ? wanted : enabledSkinIds()[0];
     const snake = room.addPlayer(parsed.data.sessionId, nickname, skin, device, lang);
+    client.pendingRevive = null;
+    client.revivesUsed = 0;
     stats.inc('game_start', device);
     stats.inc('game_lang', lang);
     stats.inc('skin', String(skin));
@@ -222,7 +263,19 @@ export class GameSocketServer {
         this.bySnake.delete(key);
         if (!client) continue;
         client.snakeId = 0;
-        this.send(client, { type: 'died', score: d.score, killer: d.killer?.nickname ?? null, reason: d.reason });
+        const ads = settings().ads;
+        const canRevive = ads.reviveEnabled && client.revivesUsed < ads.reviveMax;
+        client.pendingRevive = canRevive
+          ? { mass: d.snake.mass, deathAt: Date.now(), skin: d.snake.skin, device: d.snake.device, lang: d.snake.lang }
+          : null;
+        this.send(client, {
+          type: 'died',
+          score: d.score,
+          killer: d.killer?.nickname ?? null,
+          reason: d.reason,
+          revive: canRevive,
+          reviveSeconds: ads.reviveSeconds,
+        });
       }
     }
 
@@ -282,12 +335,15 @@ export class GameSocketServer {
         client.lastMetaAt = now;
         if (cache.ranked.length === 0) cache.ranked = room.leaderboard();
         const rank = self ? cache.ranked.indexOf(self) + 1 : 0;
+        const leader = cache.ranked[0];
         this.send(client, {
           type: 'meta',
           players: cache.players,
           top: cache.ranked.slice(0, 10).map((s) => [s.nickname, Math.floor(s.mass), s === self]),
           rank,
           count: cache.ranked.length,
+          fm: room.foodMap(),
+          lead: leader && leader !== self ? [Math.round(leader.points[0].x), Math.round(leader.points[0].y)] : undefined,
         });
       }
     }

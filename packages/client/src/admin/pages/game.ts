@@ -40,19 +40,19 @@ export async function render(root: HTMLElement): Promise<void> {
         { class: 'grid2' },
         card(
           null,
-          field(t('arenaSize'), nullable('arenaSize', 1000, 10000)),
-          field(t('playersPerRoom'), nullable('playersPerRoom', 2, 100)),
-          field(t('botsPerRoom'), nullable('botsPerRoom', 0, 50)),
-          field(t('foodPerRoom'), nullable('foodPerRoom', 50, 2000))
+          field(t('arenaSize'), nullable('arenaSize', 800, 30000)),
+          field(t('playersPerRoom'), nullable('playersPerRoom', 1, 1000)),
+          field(t('botsPerRoom'), nullable('botsPerRoom', 0, 1000)),
+          field(t('foodPerRoom'), nullable('foodPerRoom', 10, 30000))
         ),
         card(
           null,
-          field(t('speed'), num('speed', 60, 400)),
-          field(t('boostSpeed'), num('boostSpeed', 100, 800)),
-          field(t('boostCost'), num('boostCost', 0, 40, 0.5)),
-          field(t('startMass'), num('startMass', 5, 200)),
-          field(t('spawnProtection'), num('spawnProtectionSec', 0, 10, 0.5)),
-          field(t('growth'), num('growth', 0.5, 10, 0.25))
+          field(t('speed'), num('speed', 10, 3000)),
+          field(t('boostSpeed'), num('boostSpeed', 10, 6000)),
+          field(t('boostCost'), num('boostCost', 0, 1000, 0.5)),
+          field(t('startMass'), num('startMass', 1, 10000)),
+          field(t('spawnProtection'), num('spawnProtectionSec', 0, 120, 0.5)),
+          field(t('growth'), num('growth', 0.1, 1000, 0.25))
         )
       ),
     ];

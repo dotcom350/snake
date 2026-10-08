@@ -80,3 +80,32 @@ export function fmtDuration(sec: number, lang: string): string {
   if (sec < 3600) return `${fmtNumber(sec / 60, lang, 1)} min`;
   return `${fmtNumber(sec / 3600, lang, 1)} h`;
 }
+
+export interface KpiOptions {
+  sub?: string;
+  /** Change versus the previous period as a ratio (0.12 = +12%). */
+  delta?: number | null;
+  spark?: Node;
+  tone?: 'cyan' | 'green' | 'gold' | 'pink' | 'violet' | 'blue';
+}
+
+export function kpi(label: string, value: string, o: KpiOptions = {}): HTMLElement {
+  let deltaEl: HTMLElement | null = null;
+  if (o.delta !== undefined && o.delta !== null && Number.isFinite(o.delta)) {
+    const up = o.delta >= 0;
+    deltaEl = h('span', { class: `delta ${up ? 'up' : 'down'}` }, `${up ? '▲' : '▼'} ${Math.abs(Math.round(o.delta * 100))}%`);
+  }
+  return h(
+    'div',
+    { class: `kpi tone-${o.tone ?? 'cyan'}` },
+    h('span', { class: 'kpi-label' }, label),
+    h('div', { class: 'kpi-row' }, h('strong', { class: 'kpi-value' }, value), deltaEl),
+    o.sub ? h('span', { class: 'kpi-sub' }, o.sub) : null,
+    o.spark ?? null
+  );
+}
+
+export function ratio(current: number, previous: number): number | null {
+  if (!previous) return current ? null : 0;
+  return (current - previous) / previous;
+}

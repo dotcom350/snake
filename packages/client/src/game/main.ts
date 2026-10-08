@@ -68,6 +68,21 @@ export function startGame(opts: StartOptions): void {
   const toast = el('div', 'toast');
   const status = el('div', 'status', t('connecting'));
 
+  const backdrop = el('div', 'backdrop');
+  backdrop.hidden = true;
+
+  const revive = el('div', 'revive');
+  revive.hidden = true;
+  const reviveTitle = el('h2', 'revive-title', t('reviving'));
+  const reviveRing = el('div', 'revive-ring');
+  const reviveCount = el('strong', 'revive-count', '0');
+  reviveRing.append(reviveCount);
+  const reviveText = el('p', 'revive-text');
+  const reviveAd = el('div', 'revive-ad');
+  const reviveCancel = el('button', 'btn btn-ghost', t('cancel'));
+  reviveCancel.type = 'button';
+  revive.append(reviveTitle, reviveRing, reviveText, reviveAd, reviveCancel);
+
   const panel = el('div', 'panel');
   panel.hidden = true;
   const panelTitle = el('h2', 'panel-title');
@@ -75,11 +90,14 @@ export function startGame(opts: StartOptions): void {
   const panelStats = el('div', 'panel-stats');
   const panelAd = el('div', 'panel-ad');
   const panelActions = el('div', 'panel-actions');
+  const reviveBtn = el('button', 'btn btn-revive');
+  reviveBtn.type = 'button';
+  reviveBtn.hidden = true;
   const primaryBtn = el('button', 'btn btn-primary');
   primaryBtn.type = 'button';
   const menuBtn = el('button', 'btn btn-ghost', t('menu'));
   menuBtn.type = 'button';
-  panelActions.append(primaryBtn, menuBtn);
+  panelActions.append(reviveBtn, primaryBtn, menuBtn);
   panel.append(panelTitle, panelText, panelStats, panelActions, panelAd);
 
   const renderer = new Renderer(canvas, cfg.appearance, prefs);
@@ -104,7 +122,7 @@ export function startGame(opts: StartOptions): void {
   const icons = el('div', 'hud-icons');
   icons.append(exitBtn, gearBtn, muteBtn);
   hud.append(icons, scoreBox, board, hint, toast);
-  root.append(canvas, hud, boostBtn, status, panel, settingsPanel.element);
+  root.append(canvas, hud, boostBtn, backdrop, status, panel, revive, settingsPanel.element);
   document.body.append(root);
   document.body.classList.add('in-game');
   applyPrefs();
@@ -136,13 +154,20 @@ export function startGame(opts: StartOptions): void {
   let lastMass = 0;
   let wasBoosting = false;
   let shakeUntil = 0;
+  let foodMap = '';
+  let leader: [number, number] | null = null;
   const vibrate = (ms: number) => {
     if (isTouch) navigator.vibrate?.(ms);
+  };
+
+  const syncBackdrop = () => {
+    backdrop.hidden = panel.hidden && status.hidden && revive.hidden;
   };
 
   const showStatus = (text: string | null) => {
     status.textContent = text ?? '';
     status.hidden = text === null;
+    syncBackdrop();
   };
 
   const showToast = (text: string) => {
@@ -154,7 +179,9 @@ export function startGame(opts: StartOptions): void {
 
   const hidePanel = () => {
     panel.hidden = true;
+    reviveBtn.hidden = true;
     panelAd.replaceChildren();
+    syncBackdrop();
   };
 
   const showPanel = (title: string, text: string, primary: string, onPrimary: () => void, stats?: HTMLElement[]) => {
@@ -167,7 +194,60 @@ export function startGame(opts: StartOptions): void {
       onPrimary();
     };
     panel.hidden = false;
+    syncBackdrop();
     primaryBtn.focus({ preventScroll: true });
+  };
+
+  let reviveTimer = 0;
+  let reviveWatchdog = 0;
+  let lastDeath: { title: string; text: string; stats: HTMLElement[] } | null = null;
+
+  const closeRevive = () => {
+    clearInterval(reviveTimer);
+    clearTimeout(reviveWatchdog);
+    revive.hidden = true;
+    reviveAd.replaceChildren();
+    syncBackdrop();
+  };
+
+  /** Shows the revive ad with a countdown, then asks the server to bring the snake back. */
+  const startRevive = () => {
+    const ads = cfg.ads;
+    hidePanel();
+    revive.hidden = false;
+    syncBackdrop();
+    reviveText.textContent = t('reviveHint', { p: Math.round(ads.revivePercent) });
+    if (ads.reviveCode) {
+      const box = el('div', 'ad-box');
+      box.append(el('span', 'ad-label', t('ad')));
+      const slot = el('div', 'ad-content');
+      box.append(slot);
+      reviveAd.replaceChildren(box);
+      injectHtml(slot, ads.reviveCode);
+      navigator.sendBeacon?.('/api/event', JSON.stringify({ t: 'ad', s: 'revive' }));
+    }
+    const total = Math.max(0, ads.reviveSeconds);
+    const endsAt = performance.now() + total * 1000;
+    const tickRevive = () => {
+      const left = Math.max(0, Math.ceil((endsAt - performance.now()) / 1000));
+      reviveCount.textContent = String(left);
+      reviveRing.style.setProperty('--p', String(total ? 1 - left / total : 1));
+      reviveText.textContent = left > 0 ? t('reviveIn', { s: left }) : t('reviveHint', { p: Math.round(ads.revivePercent) });
+      if (left <= 0) {
+        clearInterval(reviveTimer);
+        net.revive();
+        reviveWatchdog = window.setTimeout(() => {
+          closeRevive();
+          if (lastDeath) showPanel(lastDeath.title, t('reviveFailed'), t('playAgain'), join, lastDeath.stats);
+        }, 4000);
+      }
+    };
+    tickRevive();
+    reviveTimer = window.setInterval(tickRevive, 250);
+  };
+  reviveCancel.onclick = () => {
+    closeRevive();
+    if (lastDeath) showPanel(lastDeath.title, lastDeath.text, t('playAgain'), join, lastDeath.stats);
   };
 
   const showDeathAd = () => {
@@ -194,6 +274,8 @@ export function startGame(opts: StartOptions): void {
     cancelAnimationFrame(raf);
     clearTimeout(hintTimer);
     clearTimeout(toastTimer);
+    clearInterval(reviveTimer);
+    clearTimeout(reviveWatchdog);
     controls.destroy();
     net.close();
     sound.stop();
@@ -216,6 +298,8 @@ export function startGame(opts: StartOptions): void {
   const onMessage = (msg: ServerMessage) => {
     switch (msg.type) {
       case 'joined':
+        closeRevive();
+        hidePanel();
         alive = true;
         lastMass = 0;
         arenaW = msg.arena.w;
@@ -229,6 +313,8 @@ export function startGame(opts: StartOptions): void {
         hintTimer = window.setTimeout(() => hint.classList.remove('show'), 5000);
         break;
       case 'meta': {
+        foodMap = msg.fm ?? foodMap;
+        leader = msg.lead ?? null;
         names.clear();
         for (const [id, name] of msg.players) names.set(id, name);
         rankLine.textContent = msg.rank ? t('rank', { r: msg.rank, n: msg.count }) : '';
@@ -262,7 +348,16 @@ export function startGame(opts: StartOptions): void {
           if (closed) return;
           const stats = [stat(t('yourLength'), num(msg.score), isBest), stat(isBest ? t('newBest') : t('best'), num(Math.max(best, msg.score)))];
           if (kills > 0) stats.push(stat(t('kills'), num(kills)));
+          lastDeath = { title: t('died'), text: reason, stats };
           showPanel(t('died'), reason, t('playAgain'), join, stats);
+          if (msg.revive && cfg.ads.reviveEnabled) {
+            reviveBtn.hidden = false;
+            reviveBtn.textContent = `▶ ${t('revive', { p: Math.round(cfg.ads.revivePercent) })}`;
+            reviveBtn.onclick = () => {
+              sound.click();
+              startRevive();
+            };
+          }
           showDeathAd();
         }, 700);
         break;
@@ -448,6 +543,8 @@ export function startGame(opts: StartOptions): void {
       time: now,
       joystick: controls.joystick,
       selfAlive: !!self,
+      foodMap,
+      leader,
     });
     renderer.trackFrameTime(now - lastFrame, now);
     lastFrame = now;

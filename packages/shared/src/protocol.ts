@@ -24,9 +24,12 @@ export function foodRadius(size: number): number {
 
 export type Device = 'm' | 'd';
 
+export const FOOD_MAP_SIZE = 20;
+
 export type ClientMessage =
   | { type: 'join'; nickname: string; sessionId: string; skin: number; d: Device; l: 'en' | 'es' }
-  | { type: 'input'; a: number; b: boolean };
+  | { type: 'input'; a: number; b: boolean }
+  | { type: 'revive' };
 
 /** [id, nickname] */
 export type MetaPlayer = [number, string];
@@ -35,8 +38,18 @@ export type MetaTopEntry = [string, number, boolean];
 
 export type ServerMessage =
   | { type: 'joined'; id: number; arena: { w: number; h: number }; tickHz: number }
-  | { type: 'meta'; players: MetaPlayer[]; top: MetaTopEntry[]; rank: number; count: number }
-  | { type: 'died'; score: number; killer: string | null; reason: 'snake' | 'wall' }
+  | {
+      type: 'meta';
+      players: MetaPlayer[];
+      top: MetaTopEntry[];
+      rank: number;
+      count: number;
+      /** Food density map of the arena: FOOD_MAP_SIZE² digits 0–9, row by row. */
+      fm?: string;
+      /** Position of the leader, for the minimap. */
+      lead?: [number, number];
+    }
+  | { type: 'died'; score: number; killer: string | null; reason: 'snake' | 'wall'; revive: boolean; reviveSeconds: number }
   | { type: 'kill'; name: string }
   | { type: 'error'; code: ErrorCode };
 

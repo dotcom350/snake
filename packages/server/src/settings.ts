@@ -15,7 +15,15 @@ function parseSection<K extends SettingsSection>(section: K, value: unknown): Al
       ? { ...DEFAULT_SETTINGS[section], ...(value as object) }
       : value;
   const result = SETTINGS_SCHEMAS[section].safeParse(merged);
-  return result.success ? (result.data as AllSettings[K]) : null;
+  if (!result.success) return null;
+  const data = result.data as AllSettings[K];
+  if (section === 'sound') {
+    const sound = data as AllSettings['sound'];
+    if (sound.customMusicUrl && !sound.tracks.some((tr) => tr.url === sound.customMusicUrl)) {
+      sound.tracks = [{ url: sound.customMusicUrl, name: 'Music' }, ...sound.tracks];
+    }
+  }
+  return data;
 }
 
 export async function loadSettings(): Promise<void> {

@@ -1,7 +1,7 @@
 import { api } from '../api';
-import { h, card, fmtNumber, fmtDuration } from '../ui';
+import { h, card, fmtNumber, fmtDuration, kpi, ratio } from '../ui';
 import { t, getLang, type Key } from '../i18n';
-import { chart, breakdown } from '../charts';
+import { chart, breakdown, sparkline, heatmap } from '../charts';
 import { loadSettings } from '../state';
 import { daySeries, breakdownOf, type StatsResponse } from './stats-data';
 
@@ -32,12 +32,19 @@ export async function render(root: HTMLElement): Promise<void> {
   root.replaceChildren(h('header', { class: 'page-head' }, h('h1', null, t('navStats')), tabs), body);
   body.append(h('p', { class: 'muted' }, t('loading')));
 
-  const [s, { settings }] = await Promise.all([api<StatsResponse>('GET', `/api/admin/stats?days=${currentDays}`), loadSettings()]);
+  const [s, wide, { settings }] = await Promise.all([
+    api<StatsResponse>('GET', `/api/admin/stats?days=${currentDays}`),
+    api<StatsResponse>('GET', `/api/admin/stats?days=${Math.min(730, currentDays * 2)}`),
+    loadSettings(),
+  ]);
   const d = daySeries(s);
   const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
   const skins = settings.appearance.skins;
 
-  const kpi = (label: string, value: string) => h('div', { class: 'kpi' }, h('span', { class: 'kpi-label' }, label), h('strong', { class: 'kpi-value' }, value));
+  // Previous period of the same length, for the ▲▼ comparisons.
+  const w = daySeries(wide);
+  const prev = (arr: number[]) => sum(arr.slice(0, Math.max(0, arr.length - currentDays)));
+  const delta = (cur: number[], all: number[]) => ratio(sum(cur), prev(all));
 
   const rows = (metric: string, map?: (k: string) => string, limit = 12) =>
     breakdownOf(s, metric)
@@ -83,18 +90,43 @@ export async function render(root: HTMLElement): Promise<void> {
       h(
         'div',
         { class: 'kpis' },
-        kpi(t('visitors'), fmtNumber(sum(d.visitors), lang)),
-        kpi(t('pageviews'), fmtNumber(sum(d.pageviews), lang)),
-        kpi(t('games'), fmtNumber(Number(s.games.n), lang)),
-        kpi(t('playtime'), fmtDuration(sum(d.playtimeSec), lang)),
-        kpi(t('avgGame'), fmtDuration(Number(s.games.avg_sec), lang)),
-        kpi(t('avgScore'), fmtNumber(Number(s.games.avg_score), lang)),
-        kpi(t('bestScore'), fmtNumber(Number(s.games.max_score), lang)),
-        kpi(t('kills'), fmtNumber(sum(d.kills), lang)),
-        kpi(t('peakPlayers'), fmtNumber(Math.max(0, ...d.peak), lang)),
-        kpi(t('adImpressions'), fmtNumber(sum(d.ads), lang))
+        kpi(t('visitors'), fmtNumber(sum(d.visitors), lang), { tone: 'cyan', delta: delta(d.visitors, w.visitors), spark: sparkline(d.visitors, '#3fe0ff') }),
+        kpi(t('pageviews'), fmtNumber(sum(d.pageviews), lang), { tone: 'violet', delta: delta(d.pageviews, w.pageviews), spark: sparkline(d.pageviews, '#8c7bff') }),
+        kpi(t('games'), fmtNumber(Number(s.games.n), lang), { tone: 'green', delta: delta(d.games, w.games), spark: sparkline(d.games, '#5ee06a') }),
+        kpi(t('uniquePlayers'), fmtNumber(s.returning?.players ?? 0, lang), { tone: 'gold', spark: sparkline(d.players, '#ffd166') }),
+        kpi(t('playtime'), fmtDuration(sum(d.playtimeSec), lang), { tone: 'blue', delta: delta(d.playtimeSec, w.playtimeSec) }),
+        kpi(t('avgGame'), fmtDuration(Number(s.games.avg_sec), lang), { tone: 'cyan' }),
+        kpi(t('conversion'), `${fmtNumber(sum(d.visitors) ? (Math.min(sum(d.players), sum(d.visitors)) / sum(d.visitors)) * 100 : 0, lang, 1)}%`, { tone: 'green' }),
+        kpi(t('gamesPerPlayer'), fmtNumber(s.returning?.players ? Number(s.games.n) / s.returning.players : 0, lang, 1), { tone: 'violet' }),
+        kpi(t('avgScore'), fmtNumber(Number(s.games.avg_score), lang), { tone: 'gold' }),
+        kpi(t('bestScore'), fmtNumber(Number(s.games.max_score), lang), { tone: 'pink' }),
+        kpi(t('kills'), fmtNumber(sum(d.kills), lang), { tone: 'pink', delta: delta(d.kills, w.kills) }),
+        kpi(t('revives'), fmtNumber(sum(d.revives), lang), { tone: 'gold', delta: delta(d.revives, w.revives) }),
+        kpi(t('peakPlayers'), fmtNumber(Math.max(0, ...d.peak), lang), { tone: 'blue' }),
+        kpi(t('adImpressions'), fmtNumber(sum(d.ads), lang), { tone: 'gold', delta: delta(d.ads, w.ads), spark: sparkline(d.ads, '#ffd166') })
       ),
       h('p', { class: 'muted small' }, t('timezoneNote', { tz: s.timeZone }))
+    ),
+    h(
+      'div',
+      { class: 'grid2' },
+      card(t('heatTitle'), heatmap(s.heat ?? [], t('weekdays').split(','), lang)),
+      card(
+        t('returningTitle'),
+        h(
+          'div',
+          { class: 'big-stat' },
+          h('strong', null, `${fmtNumber(s.returning?.players ? (s.returning.returning / s.returning.players) * 100 : 0, lang, 1)}%`),
+          h('span', { class: 'muted' }, t('returningHelp', { r: fmtNumber(s.returning?.returning ?? 0, lang), n: fmtNumber(s.returning?.players ?? 0, lang) }))
+        ),
+        h('h3', { class: 'sub' }, t('scoresTitle')),
+        breakdown(
+          ['0-24', '25-49', '50-99', '100-249', '250-499', '500-999', '1000+'].map((b) => ({ label: b, value: s.scores?.find((x) => x.bucket === b)?.n ?? 0 })).filter((r) => r.value > 0),
+          lang,
+          t('noData'),
+          '#8c7bff'
+        )
+      )
     ),
     card(
       t('trafficChart'),

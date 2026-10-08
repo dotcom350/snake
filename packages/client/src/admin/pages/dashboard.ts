@@ -1,5 +1,5 @@
 import { api } from '../api';
-import { h, card, fmtNumber, fmtDuration } from '../ui';
+import { h, card, fmtNumber, fmtDuration, kpi, ratio } from '../ui';
 import { t, getLang } from '../i18n';
 import { chart } from '../charts';
 import { daySeries, type StatsResponse } from './stats-data';
@@ -17,9 +17,6 @@ interface Live {
   rooms: Array<{ id: string; humans: number; bots: number; food: number; size: number; ageSec: number; top: Array<{ name: string; score: number; bot: boolean }> }>;
 }
 
-function kpi(label: string, value: string, sub?: string): HTMLElement {
-  return h('div', { class: 'kpi' }, h('span', { class: 'kpi-label' }, label), h('strong', { class: 'kpi-value' }, value), sub ? h('span', { class: 'kpi-sub' }, sub) : null);
-}
 
 export async function render(root: HTMLElement): Promise<() => void> {
   const lang = getLang();
@@ -39,14 +36,14 @@ export async function render(root: HTMLElement): Promise<() => void> {
   const refreshLive = async () => {
     const d = await api<Live>('GET', '/api/admin/live');
     liveBox.replaceChildren(
-      kpi(t('playersOnline'), fmtNumber(d.humanPlayers, lang)),
-      kpi(t('bots'), fmtNumber(d.bots, lang)),
-      kpi(t('rooms'), fmtNumber(d.totalRooms, lang)),
-      kpi(t('connections'), fmtNumber(d.connections, lang)),
-      kpi(t('memory'), `${d.memory.rssMB} MB`, `heap ${d.memory.heapMB} MB`),
-      kpi(t('tickTime'), `${fmtNumber(d.avgTickMs, lang, 2)} ms`, `${d.limits.tickHz} Hz`),
-      kpi(t('uptime'), fmtDuration(d.uptimeSec, lang)),
-      kpi(t('profile'), d.profile)
+      kpi(t('playersOnline'), fmtNumber(d.humanPlayers, lang), { tone: 'green' }),
+      kpi(t('bots'), fmtNumber(d.bots, lang), { tone: 'violet' }),
+      kpi(t('rooms'), fmtNumber(d.totalRooms, lang), { tone: 'cyan' }),
+      kpi(t('connections'), fmtNumber(d.connections, lang), { tone: 'blue' }),
+      kpi(t('memory'), `${d.memory.rssMB} MB`, { sub: `heap ${d.memory.heapMB} MB`, tone: 'gold' }),
+      kpi(t('tickTime'), `${fmtNumber(d.avgTickMs, lang, 2)} ms`, { sub: `${d.limits.tickHz} Hz`, tone: 'pink' }),
+      kpi(t('uptime'), fmtDuration(d.uptimeSec, lang), { tone: 'cyan' }),
+      kpi(t('profile'), d.profile, { tone: 'violet' })
     );
     roomsBox.replaceChildren(
       d.rooms.length
@@ -84,16 +81,19 @@ export async function render(root: HTMLElement): Promise<() => void> {
     const s = await api<StatsResponse>('GET', '/api/admin/stats?days=2');
     const d = daySeries(s);
     const i = d.labels.length - 1;
-    const cmp = (arr: number[]) => (i > 0 ? `${t('yesterday')}: ${fmtNumber(arr[i - 1], lang)}` : undefined);
+    const cmp = (arr: number[]) => ({
+      sub: i > 0 ? `${t('yesterday')}: ${fmtNumber(arr[i - 1], lang)}` : undefined,
+      delta: i > 0 ? ratio(arr[i] ?? 0, arr[i - 1] ?? 0) : null,
+    });
     todayBox.replaceChildren(
-      kpi(t('visitors'), fmtNumber(d.visitors[i] ?? 0, lang), cmp(d.visitors)),
-      kpi(t('pageviews'), fmtNumber(d.pageviews[i] ?? 0, lang), cmp(d.pageviews)),
-      kpi(t('games'), fmtNumber(d.games[i] ?? 0, lang), cmp(d.games)),
-      kpi(t('uniquePlayers'), fmtNumber(d.players[i] ?? 0, lang), cmp(d.players)),
-      kpi(t('playtime'), fmtDuration(d.playtimeSec[i] ?? 0, lang)),
-      kpi(t('peakPlayers'), fmtNumber(d.peak[i] ?? 0, lang), cmp(d.peak)),
-      kpi(t('kills'), fmtNumber(d.kills[i] ?? 0, lang)),
-      kpi(t('adImpressions'), fmtNumber(d.ads[i] ?? 0, lang), cmp(d.ads))
+      kpi(t('visitors'), fmtNumber(d.visitors[i] ?? 0, lang), { ...cmp(d.visitors), tone: 'cyan' }),
+      kpi(t('pageviews'), fmtNumber(d.pageviews[i] ?? 0, lang), { ...cmp(d.pageviews), tone: 'violet' }),
+      kpi(t('games'), fmtNumber(d.games[i] ?? 0, lang), { ...cmp(d.games), tone: 'green' }),
+      kpi(t('uniquePlayers'), fmtNumber(d.players[i] ?? 0, lang), { ...cmp(d.players), tone: 'gold' }),
+      kpi(t('playtime'), fmtDuration(d.playtimeSec[i] ?? 0, lang), { ...cmp(d.playtimeSec), tone: 'blue' }),
+      kpi(t('peakPlayers'), fmtNumber(d.peak[i] ?? 0, lang), { ...cmp(d.peak), tone: 'pink' }),
+      kpi(t('revives'), fmtNumber(d.revives[i] ?? 0, lang), { ...cmp(d.revives), tone: 'gold' }),
+      kpi(t('adImpressions'), fmtNumber(d.ads[i] ?? 0, lang), { ...cmp(d.ads), tone: 'green' })
     );
     const labels = s.samples.map((x) => x.hour.slice(11) + 'h');
     chartBox.replaceChildren(

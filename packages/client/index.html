@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Snake Arena – Free Multiplayer Snake .io Game Online</title>
-    <meta name="description" content="Play Snake Arena free in your browser: a fast multiplayer snake .io game. Eat glowing orbs, grow longer and outsmart other snakes. No download, works on mobile." />
+    <title>Snake Arena – Free Multiplayer Snake Game Online</title>
+    <meta name="description" content="Play Snake Arena free in your browser: a fast multiplayer snake game. Eat glowing orbs, grow longer and outsmart other snakes. No download, works on mobile." />
     <link rel="canonical" href="%SITE_URL%/" />
     <link rel="alternate" hreflang="en" href="%SITE_URL%/" />
     <link rel="alternate" hreflang="es" href="%SITE_URL%/es/" />
@@ -23,7 +23,7 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Snake Arena" />
-    <meta property="og:title" content="Snake Arena – Free Multiplayer Snake .io Game" />
+    <meta property="og:title" content="Snake Arena – Free Multiplayer Snake Game" />
     <meta property="og:description" content="Eat glowing orbs, grow longer and outsmart other snakes. Play free in your browser, on phone or computer." />
     <meta property="og:url" content="%SITE_URL%/" />
     <meta property="og:image" content="%SITE_URL%/og-image.png" />
@@ -33,7 +33,7 @@
     <meta property="og:locale" content="en_US" />
     <meta property="og:locale:alternate" content="es_ES" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Snake Arena – Free Multiplayer Snake .io Game" />
+    <meta name="twitter:title" content="Snake Arena – Free Multiplayer Snake Game" />
     <meta name="twitter:description" content="Eat glowing orbs, grow longer and outsmart other snakes. Free, no download." />
     <meta name="twitter:image" content="%SITE_URL%/og-image.png" />
 
@@ -53,8 +53,8 @@
             "name": "Snake Arena",
             "url": "%SITE_URL%/",
             "image": "%SITE_URL%/og-image.png",
-            "description": "Free multiplayer snake .io game you play in the browser. Eat glowing orbs, grow longer and outsmart other snakes.",
-            "genre": ["Arcade", "Multiplayer", "io game"],
+            "description": "Free multiplayer snake game you play in the browser. Eat glowing orbs, grow longer and outsmart other snakes.",
+            "genre": ["Arcade", "Multiplayer", "Snake game"],
             "gamePlatform": ["Web browser", "Mobile web browser"],
             "applicationCategory": "Game",
             "operatingSystem": "Any",
@@ -99,8 +99,8 @@
           <div class="hero-shade" aria-hidden="true"></div>
           <div class="hero-inner">
             <div class="hero-copy">
-              <span class="eyebrow"><i aria-hidden="true"></i>Multiplayer .io · 100% free</span>
-              <h1 id="title">Snake Arena <span>Free multiplayer snake .io game</span></h1>
+              <span class="eyebrow"><i aria-hidden="true"></i>Online multiplayer · 100% free</span>
+              <h1 id="title">Snake Arena <span>Free online multiplayer snake game</span></h1>
               <p class="lead">Slither through a glowing space arena, eat energy orbs and grow into the longest snake. Play instantly in your browser, on your phone or computer.</p>
               <ul class="hero-points">
                 <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor"/></svg>Instant play</li>
@@ -115,13 +115,18 @@
               data-err-full="The server is full right now. Try again in a moment.">
               <div class="skin-picker" id="skin-picker" hidden>
                 <span class="card-label">Choose your snake</span>
-                <div class="skin-stage">
-                  <canvas aria-hidden="true"></canvas>
-                  <button type="button" class="skin-nav prev" data-dir="-1" aria-label="Previous snake">‹</button>
-                  <button type="button" class="skin-nav next" data-dir="1" aria-label="Next snake">›</button>
-                  <span class="skin-name" aria-live="polite"></span>
+                <div class="carousel">
+                  <button type="button" class="skin-nav prev" data-dir="-1" aria-label="Previous snake"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                  <div class="carousel-stage">
+                    <span class="carousel-glow" aria-hidden="true"></span>
+                    <canvas class="c-side c-prev" aria-hidden="true"></canvas>
+                    <canvas class="c-side c-next" aria-hidden="true"></canvas>
+                    <canvas class="c-main" aria-hidden="true"></canvas>
+                    <span class="carousel-shadow" aria-hidden="true"></span>
+                  </div>
+                  <button type="button" class="skin-nav next" data-dir="1" aria-label="Next snake"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                 </div>
-                <div class="skin-dots" aria-hidden="true"></div>
+                <div class="skin-meta"><span class="skin-name" aria-live="polite"></span><span class="skin-dots" aria-hidden="true"></span></div>
               </div>
 
               <label class="card-label" for="nickname">Your nickname</label>
@@ -227,8 +232,8 @@
               <p>Your snake turns into glowing orbs that other players can eat. Press Play again to respawn instantly.</p>
             </details>
             <details>
-              <summary>Is it like other snake .io games?</summary>
-              <p>Yes. If you enjoy snake .io games like slither.io, you will feel right at home: steer, eat, grow and trap other snakes.</p>
+              <summary>Are there bots in the arena?</summary>
+              <p>Yes. When few people are online, bots join the arena so there is always someone to chase. They play by the same rules as everyone else, so they can be trapped and eaten too.</p>
             </details>
           </div>
         </section>

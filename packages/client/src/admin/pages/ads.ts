@@ -15,8 +15,17 @@ export async function render(root: HTMLElement): Promise<void> {
       ads[k] = v;
       changed();
     };
-    const every = numberInput(ads.deathEvery, { min: 1, max: 20 });
-    every.addEventListener('input', () => set('deathEvery', Math.max(1, Math.min(20, Number(every.value) || 1))));
+    const num = <K extends 'deathEvery' | 'reviveSeconds' | 'revivePercent' | 'reviveMax' | 'estimatedCpm'>(k: K, min: number, step = 1) => {
+      const i = numberInput(ads[k], { min, step });
+      i.addEventListener('input', () => {
+        if (i.value !== '') set(k, Number(i.value) as (typeof ads)[K]);
+      });
+      return i;
+    };
+    const currency = h('input', { class: 'input', maxlength: 8 });
+    currency.value = ads.currency;
+    currency.addEventListener('input', () => set('currency', currency.value.toUpperCase() || 'USD'));
+
     return [
       card(
         null,
@@ -29,14 +38,31 @@ export async function render(root: HTMLElement): Promise<void> {
         field(t('verifyTags'), codeArea(ads.verifyTags, 3, (v) => set('verifyTags', v))),
         h('p', { class: 'muted small' }, t('verifyExample'), h('code', null, '<meta name="monetag" content="92d3efef502a42d1667e5b6899e83cfe">'))
       ),
-      card(
-        null,
-        field(t('adsHead'), codeArea(ads.headCode, 5, (v) => set('headCode', v))),
-        field(t('adsLanding'), codeArea(ads.landingCode, 5, (v) => set('landingCode', v))),
-        field(t('adsDeath'), codeArea(ads.deathCode, 5, (v) => set('deathCode', v))),
-        field(t('adsEvery'), every)
+      h(
+        'div',
+        { class: 'grid2' },
+        card(
+          null,
+          field(t('adsHead'), codeArea(ads.headCode, 5, (v) => set('headCode', v))),
+          field(t('adsLanding'), codeArea(ads.landingCode, 5, (v) => set('landingCode', v))),
+          field(t('adsDeath'), codeArea(ads.deathCode, 5, (v) => set('deathCode', v))),
+          field(t('adsEvery'), num('deathEvery', 1))
+        ),
+        card(
+          t('reviveTitle'),
+          h('label', { class: 'switch-row' }, toggle(ads.reviveEnabled, (v) => set('reviveEnabled', v)), h('strong', null, t('reviveEnabled'))),
+          field(t('reviveCode'), codeArea(ads.reviveCode, 5, (v) => set('reviveCode', v))),
+          h('div', { class: 'row2' }, field(t('reviveSeconds'), num('reviveSeconds', 0)), field(t('revivePercent'), num('revivePercent', 1))),
+          field(t('reviveMax'), num('reviveMax', 0)),
+          h('p', { class: 'muted small' }, t('reviveNote'))
+        )
       ),
-      card(null, field(t('adsTxt'), codeArea(ads.adsTxt, 4, (v) => set('adsTxt', v)))),
+      h(
+        'div',
+        { class: 'grid2' },
+        card(t('earningsSettings'), h('div', { class: 'row2' }, field(t('estimatedCpm'), num('estimatedCpm', 0, 0.01)), field(t('currency'), currency))),
+        card(null, field(t('adsTxt'), codeArea(ads.adsTxt, 4, (v) => set('adsTxt', v))))
+      ),
       h('p', { class: 'notice' }, t('adsMonetag')),
     ];
   });

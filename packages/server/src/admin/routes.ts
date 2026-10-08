@@ -82,7 +82,8 @@ export async function registerAdminRoutes(
       return payload;
     });
 
-    app.addContentTypeParser([...Object.keys(AUDIO_TYPES), ...Object.keys(IMAGE_TYPES)], { parseAs: 'buffer', bodyLimit: 12 * 1024 * 1024 }, (_req, body, done) =>
+    app.addContentTypeParser('text/csv', { parseAs: 'string', bodyLimit: 2 * 1024 * 1024 }, (_req, body, done) => done(null, body));
+    app.addContentTypeParser([...Object.keys(AUDIO_TYPES), ...Object.keys(IMAGE_TYPES)], { parseAs: 'buffer', bodyLimit: 60 * 1024 * 1024 }, (_req, body, done) =>
       done(null, body)
     );
 
@@ -143,10 +144,10 @@ export async function registerAdminRoutes(
       const from = fromDate.toISOString().slice(0, 10);
       const tz = settings().general.timeZone;
 
-      const [series, uniques, breakdown, games, samples, topToday, topAll] = await Promise.all([
+      const [series, uniques, breakdown, games, samples, topToday, topAll, heat, returning, scores] = await Promise.all([
         query<{ day: string; metric: string; value: string }>(
           `SELECT to_char(day, 'YYYY-MM-DD') AS day, metric, sum(value)::text AS value FROM stats_daily
-           WHERE day >= $1 AND metric IN ('pageview','game_start','death','kill','playtime_sec','max_players','ad_impression','connections')
+           WHERE day >= $1 AND metric IN ('pageview','game_start','death','kill','playtime_sec','max_players','ad_impression','connections','revive')
            GROUP BY day, metric`,
           [from]
         ),
@@ -179,9 +180,26 @@ export async function registerAdminRoutes(
           [today, tz]
         ),
         query(`SELECT nickname, score, kills, skin, device, ended_at FROM games ORDER BY score DESC LIMIT 10`),
+        query<{ dow: number; hour: number; n: number }>(
+          `SELECT extract(isodow FROM ended_at AT TIME ZONE $2)::int AS dow, extract(hour FROM ended_at AT TIME ZONE $2)::int AS hour, count(*)::int AS n
+           FROM games WHERE (ended_at AT TIME ZONE $2)::date >= $1::date GROUP BY 1, 2`,
+          [from, tz]
+        ),
+        query<{ players: number; returning: number }>(
+          `SELECT count(*)::int AS players, count(*) FILTER (WHERE d > 1)::int AS returning
+           FROM (SELECT hash, count(DISTINCT day) AS d FROM stats_uniques WHERE kind = 'player' AND day >= $1 GROUP BY hash) x`,
+          [from]
+        ),
+        query<{ bucket: string; n: number }>(
+          `SELECT CASE WHEN score < 25 THEN '0-24' WHEN score < 50 THEN '25-49' WHEN score < 100 THEN '50-99'
+                       WHEN score < 250 THEN '100-249' WHEN score < 500 THEN '250-499' WHEN score < 1000 THEN '500-999' ELSE '1000+' END AS bucket,
+                  count(*)::int AS n
+           FROM games WHERE (ended_at AT TIME ZONE $2)::date >= $1::date GROUP BY 1`,
+          [from, tz]
+        ),
       ]);
 
-      return { today, from, days, timeZone: tz, series, uniques, breakdown, games: games[0], samples, topToday, topAll };
+      return { today, from, days, timeZone: tz, series, uniques, breakdown, games: games[0], samples, topToday, topAll, heat, returning: returning[0], scores };
     });
 
     app.get('/api/admin/settings', async () => ({ settings: settings(), defaults: DEFAULT_SETTINGS }));
@@ -200,30 +218,121 @@ export async function registerAdminRoutes(
       const ext = AUDIO_TYPES[type];
       const body = request.body as Buffer;
       if (!ext || !Buffer.isBuffer(body) || !looksLikeAudio(body)) return reply.code(400).send({ error: 'INVALID_AUDIO' });
+      const sound = settings().sound;
+      if (sound.tracks.length >= 200) return reply.code(400).send({ error: 'TOO_MANY_TRACKS' });
       await fs.mkdir(uploadsDir, { recursive: true });
-      const name = `music-${randomBytes(8).toString('hex')}.${ext}`;
-      await fs.writeFile(path.join(uploadsDir, name), body);
-
-      const previous = settings().sound.customMusicUrl;
-      await saveSection('sound', { ...settings().sound, customMusicUrl: `/uploads/${name}` }, request.admin!.id);
-      if (previous?.startsWith('/uploads/music-')) await fs.rm(path.join(uploadsDir, path.basename(previous)), { force: true });
-      await audit(request.admin!.id, 'upload_music', 'sound', { file: name, bytes: body.length }, request.ip);
+      const file = `music-${randomBytes(8).toString('hex')}.${ext}`;
+      await fs.writeFile(path.join(uploadsDir, file), body);
+      let name = 'Track';
+      try {
+        name = decodeURIComponent(String(request.headers['x-file-name'] ?? 'Track')).replace(/\.[a-z0-9]{2,4}$/i, '').slice(0, 80).trim() || 'Track';
+      } catch {
+        // Keep the default name.
+      }
+      const result = await saveSection('sound', { ...sound, tracks: [...sound.tracks, { url: `/uploads/${file}`, name }] }, request.admin!.id);
+      if (!result.ok) {
+        await fs.rm(path.join(uploadsDir, file), { force: true });
+        return reply.code(400).send({ error: 'INVALID_INPUT', issues: result.issues });
+      }
+      await audit(request.admin!.id, 'upload_music', 'sound', { file, bytes: body.length }, request.ip);
       return { ok: true, settings: settings() };
     });
 
     app.delete('/api/admin/music', async (request) => {
-      const previous = settings().sound.customMusicUrl;
-      await saveSection('sound', { ...settings().sound, customMusicUrl: null }, request.admin!.id);
-      if (previous?.startsWith('/uploads/music-')) await fs.rm(path.join(uploadsDir, path.basename(previous)), { force: true });
-      await audit(request.admin!.id, 'delete_music', 'sound', undefined, request.ip);
+      const url = String((request.query as { url?: string }).url ?? '');
+      const sound = settings().sound;
+      const removeAll = !url;
+      const tracks = removeAll ? [] : sound.tracks.filter((tr) => tr.url !== url);
+      const removed = removeAll ? [...sound.tracks.map((tr) => tr.url), sound.customMusicUrl ?? ''] : [url];
+      await saveSection('sound', { ...sound, tracks, customMusicUrl: removeAll || sound.customMusicUrl === url ? null : sound.customMusicUrl }, request.admin!.id);
+      for (const u of removed) {
+        if (u.startsWith('/uploads/music-')) await fs.rm(path.join(uploadsDir, path.basename(u)), { force: true });
+      }
+      await audit(request.admin!.id, 'delete_music', 'sound', { url: url || 'all' }, request.ip);
       return { ok: true, settings: settings() };
+    });
+
+    // Earnings: real amounts entered by the admin (or imported) plus an estimate from impressions × eCPM.
+    app.get('/api/admin/revenue', async (request) => {
+      await stats.flush();
+      const days = Math.min(730, Math.max(1, Number((request.query as { days?: string }).days) || 30));
+      const today = stats.day();
+      const fromDate = new Date(`${today}T00:00:00Z`);
+      fromDate.setUTCDate(fromDate.getUTCDate() - (days - 1));
+      const from = fromDate.toISOString().slice(0, 10);
+      const [entries, impressions, players, totals] = await Promise.all([
+        query(
+          `SELECT id, to_char(day, 'YYYY-MM-DD') AS day, amount::float AS amount, source, note FROM revenue_entries
+           WHERE day >= $1 ORDER BY day DESC, id DESC`,
+          [from]
+        ),
+        query(
+          `SELECT to_char(day, 'YYYY-MM-DD') AS day, sum(value)::int AS n FROM stats_daily
+           WHERE day >= $1 AND metric = 'ad_impression' GROUP BY day`,
+          [from]
+        ),
+        query(
+          `SELECT to_char(day, 'YYYY-MM-DD') AS day, count(*)::int AS n FROM stats_uniques
+           WHERE day >= $1 AND kind = 'player' GROUP BY day`,
+          [from]
+        ),
+        query(`SELECT coalesce(sum(amount), 0)::float AS total FROM revenue_entries`),
+      ]);
+      const ads = settings().ads;
+      return { today, from, days, currency: ads.currency, estimatedCpm: ads.estimatedCpm, entries, impressions, players, allTime: totals[0] };
+    });
+
+    const RevenueSchema = z.object({
+      day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      amount: z.number().min(-1e9).max(1e9),
+      source: z.string().trim().min(1).max(40).default('Monetag'),
+      note: z.string().max(200).default(''),
+    });
+
+    app.post('/api/admin/revenue', async (request, reply) => {
+      const body = RevenueSchema.safeParse(request.body);
+      if (!body.success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+      const { day, amount, source, note } = body.data;
+      await query(
+        `INSERT INTO revenue_entries (day, amount, source, note) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (day, source) DO UPDATE SET amount = EXCLUDED.amount, note = EXCLUDED.note`,
+        [day, amount, source, note]
+      );
+      await audit(request.admin!.id, 'save_revenue', 'revenue', { day, amount, source }, request.ip);
+      return { ok: true };
+    });
+
+    app.post('/api/admin/revenue/import', async (request, reply) => {
+      const text = typeof request.body === 'string' ? request.body : '';
+      let imported = 0;
+      for (const line of text.split(/\r?\n/)) {
+        const cols = line.split(/[,;\t]/).map((c) => c.trim().replace(/^"|"$/g, ''));
+        const row = RevenueSchema.safeParse({ day: cols[0], amount: Number((cols[1] ?? '').replace(/[^0-9.-]/g, '')), source: cols[2] || 'Monetag', note: cols[3] ?? '' });
+        if (!row.success || Number.isNaN(row.data.amount)) continue;
+        await query(
+          `INSERT INTO revenue_entries (day, amount, source, note) VALUES ($1, $2, $3, $4)
+           ON CONFLICT (day, source) DO UPDATE SET amount = EXCLUDED.amount`,
+          [row.data.day, row.data.amount, row.data.source, row.data.note]
+        );
+        imported++;
+        if (imported >= 5000) break;
+      }
+      if (!imported) return reply.code(400).send({ error: 'NOTHING_IMPORTED' });
+      await audit(request.admin!.id, 'import_revenue', 'revenue', { rows: imported }, request.ip);
+      return { ok: true, imported };
+    });
+
+    app.delete('/api/admin/revenue/:id', async (request) => {
+      const id = Number((request.params as { id: string }).id);
+      if (Number.isInteger(id)) await query('DELETE FROM revenue_entries WHERE id = $1', [id]);
+      return { ok: true };
     });
 
     app.post('/api/admin/background', async (request, reply) => {
       const type = String(request.headers['content-type'] ?? '').split(';')[0].trim();
       const ext = IMAGE_TYPES[type];
       const body = request.body as Buffer;
-      if (!ext || !Buffer.isBuffer(body) || body.length > 5 * 1024 * 1024 || !looksLikeImage(body)) {
+      if (!ext || !Buffer.isBuffer(body) || body.length > 25 * 1024 * 1024 || !looksLikeImage(body)) {
         return reply.code(400).send({ error: 'INVALID_IMAGE' });
       }
       await fs.mkdir(uploadsDir, { recursive: true });

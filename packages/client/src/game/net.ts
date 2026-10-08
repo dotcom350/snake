@@ -73,6 +73,10 @@ export class Net {
     this.send({ type: 'join', nickname, sessionId, skin, d, l });
   }
 
+  revive(): void {
+    this.send({ type: 'revive' });
+  }
+
   input(angle: number, boost: boolean, now: number): void {
     if (now - this.lastSentAt < INPUT_INTERVAL_MS) return;
     const changed = !(Math.abs(angle - this.lastAngle) < 0.02) || boost !== this.lastBoost;
