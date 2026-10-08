@@ -7,7 +7,7 @@ import { translator } from './i18n';
 import { Sound } from './audio';
 import { createSettingsPanel } from './settings-panel';
 import { storage, sessionId } from '../storage';
-import { siteConfig, injectHtml } from '../site';
+import { siteConfig, injectHtml, adLog, monetagZoneIn, isMonetagSdkCode } from '../site';
 import { loadPrefs, savePrefs } from '../prefs';
 import { telegram, tgAtLeast, loadMonetag, type MonetagShow } from '../telegram';
 
@@ -148,9 +148,16 @@ export function startGame(opts: StartOptions): void {
     document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => undefined);
   }
 
-  // Monetag's Telegram SDK (rewarded ads) is only used inside Telegram.
+  // Monetag SDK (rewarded ads): the Telegram zone, or a zone found in the revive / pre-game codes.
   let monetag: MonetagShow | null = null;
-  if (tg && cfg.ads.tgZone) void loadMonetag(cfg.ads.tgZone).then((fn) => (monetag = fn));
+  const sdkZone = cfg.ads.tgZone || monetagZoneIn(cfg.ads.reviveCode) || monetagZoneIn(cfg.ads.playCode);
+  adLog(`platform=${tg ? 'telegram' : 'web'} sdkZone=${sdkZone || '-'} revive=${cfg.ads.reviveEnabled} webAds=${cfg.ads.enabled}`);
+  if (sdkZone) {
+    void loadMonetag(sdkZone).then((fn) => {
+      monetag = fn;
+      adLog(fn ? `Monetag SDK ready: show_${sdkZone}()` : 'Monetag SDK failed to load (blocked or offline)');
+    });
+  }
 
   const sid = sessionId();
   const names = new Map<number, string>();
@@ -270,22 +277,29 @@ export function startGame(opts: StartOptions): void {
     if (!monetag) return startRevive();
     hidePanel();
     showStatus(t('reviving'));
+    adLog(`revive: show rewarded interstitial (ymid=${reviveId})`);
     try {
       await monetag({ ymid: reviveId });
-    } catch {
+      adLog('revive: rewarded interstitial finished');
+    } catch (e) {
+      adLog(`revive: interstitial failed: ${String(e)}`);
       let watched = false;
       if (cfg.ads.tgPopupFallback) {
         try {
+          adLog('revive: trying rewarded popup');
           await monetag({ type: 'pop', ymid: reviveId });
           watched = true;
-        } catch {
+          adLog('revive: rewarded popup finished');
+        } catch (e2) {
+          adLog(`revive: popup failed: ${String(e2)}`);
           watched = false;
         }
       }
       if (!watched) {
+        // No ad from Monetag right now: fall back to the countdown revive so the player isn't stuck.
         showStatus(null);
         showToast(t('noAd'));
-        if (lastDeath) showPanel(lastDeath.title, lastDeath.text, t('playAgain'), playAgain, lastDeath.stats);
+        startRevive();
         return;
       }
     }
@@ -315,7 +329,9 @@ export function startGame(opts: StartOptions): void {
   /** Builds a labelled ad box; in test mode (?adtest=1) empty slots show a placeholder. */
   const adBox = (code: string, slotName: 'death' | 'revive' | 'play', size: string): HTMLElement | null => {
     if (tg && cfg.ads.tgHideWebAds && !adTest) return null;
+    if (isMonetagSdkCode(code)) code = '';
     if (!code && !adTest) return null;
+    adLog(`${slotName} slot: ${code ? 'injecting ad code' : 'test placeholder'}`);
     const box = el('div', `ad-box ad-${slotName}`);
     box.append(el('span', 'ad-label', t('ad')));
     const slot = el('div', 'ad-content');
@@ -375,7 +391,11 @@ export function startGame(opts: StartOptions): void {
     const plays = Number(storage.get('plays') ?? 0);
     storage.set('plays', String(plays + 1));
     if (monetag && ads.tgPreroll && plays % Math.max(1, ads.playEvery) === 0) {
-      monetag().catch(() => undefined).finally(go);
+      adLog('pre-game: show rewarded interstitial');
+      monetag()
+        .then(() => adLog('pre-game ad finished'))
+        .catch((e: unknown) => adLog(`pre-game ad failed: ${String(e)}`))
+        .finally(go);
       return;
     }
     const active = (ads.enabled && ads.playCode) || adTest;

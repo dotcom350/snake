@@ -191,7 +191,8 @@ export class GameSocketServer {
     const now = Date.now();
     const waited = now - pending.deathAt;
     if (waited > 5 * 60_000) return;
-    if (viaTelegramAd && ads.tgZone) {
+    const usesMonetagSdk = !!ads.tgZone || /show_\d{4,}|libtl\.com/.test(ads.reviveCode + ads.playCode);
+    if (viaTelegramAd && usesMonetagSdk) {
       // Monetag's SDK resolved on the client; optionally also require its server postback.
       if (ads.tgVerify && !pending.verified) return;
     } else if (waited < ads.reviveSeconds * 1000 - 1500) {
